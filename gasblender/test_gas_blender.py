@@ -48,10 +48,20 @@ class TopupBlendTests(unittest.TestCase):
         self.assertAlmostEqual(result.o2, 19.6, 0)
         self.assertAlmostEqual(result.he, 19.3, 0)
 
+    def test_mix2_plus_air(self):
+        result = topup_blend(self.b_half_2250, self.b_full_air)
+        self.assertAlmostEqual(result.o2, 21.5, 0)
+        self.assertAlmostEqual(result.he, 24.1, 0)
+
     def test_air_plus_air(self):
         result = topup_blend(self.b_empty_air, self.b_full_air)
         self.assertAlmostEqual(result.o2, 21, 0)
         self.assertAlmostEqual(result.he, 0, 0)
+
+    def test_min_air_plus_trimix(self):
+        result = topup_blend(self.b_min_air, self.b_half_2250)
+        self.assertAlmostEqual(result.o2, 21.6, 0)
+        self.assertAlmostEqual(result.he, 28.9, 0)
 
     def test_default_bar_uses_topup_bar(self):
         result = topup_blend(self.b_empty_air, self.b_full_air)
@@ -119,9 +129,13 @@ class TrimixBlendTests(unittest.TestCase):
     def test_bank_exhaustion_adds_extra_he_step(self):
         # b_half_1050 has only 120 bar; not enough He for a 250-bar 18/40 blend
         result = TrimixBlend(self.b_empty_air, self.b_full_1840, self.b_half_1050)
-        self.assertEqual(len(result.steps), 4)
-        self.assertEqual(result.steps[0].name, self.b_half_1050.short_name())
-        self.assertEqual(result.steps[1].name, "He")
+        expected = [
+            Gas(120,   10.2, 49.2),
+            Gas(162.1, -1,   -1),
+            Gas(179.8, 17.4, -1),
+            Gas(250,   18,   40),
+        ]
+        self._check_steps(result, expected)
 
     def test_nitrox_has_no_he_step(self):
         result = TrimixBlend(self.b_empty_air, self.b_full_n36, self.b_full_he)
