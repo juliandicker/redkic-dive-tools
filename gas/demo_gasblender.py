@@ -1,4 +1,7 @@
-from gasblender import * 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'gasblender'))
+from gas_blender import *
 
 def test_trimixblend(start, finish, he):
     mix = TrimixBlend(start, finish, he)

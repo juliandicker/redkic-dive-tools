@@ -1,6 +1,9 @@
 import math
-from gasblender import * 
+import sys
+import os
 import unittest
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'gasblender'))
+from gas_blender import *
 
 b_half_2250 = Gas(120, 22, 50)
 b_full_air = Gas(250, 21, 0)
