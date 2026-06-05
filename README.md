@@ -20,12 +20,13 @@ GasBlender/
 ├── TrimixBlend/
 │   ├── __init__.py     # Azure HTTP trigger — parses request, calls gas_blender
 │   └── function.json   # Binding config (HTTP POST)
+├── tests/
+│   └── test_gas_blender.py  # Unit tests (28 tests, unittest)
 ├── gas_blender.py      # Core logic: Gas, BlendStep, TrimixBlend, topup_blend
-├── test_gas_blender.py # Unit tests (28 tests, unittest)
 ├── index.html          # Static web UI (hosted on Azure Blob Storage)
 ├── host.json           # Azure Functions runtime config
 ├── requirements.txt    # Python dependencies
-└── .funcignore         # Excludes tests/venv from Azure deployment
+└── .funcignore         # Excludes tests/, index.html etc from Azure deployment
 ```
 
 The repo root is the Azure Function app — deploy it directly with the Azure Functions Core Tools or VS Code extension.
@@ -83,7 +84,7 @@ func host start
 ### Tests
 
 ```bash
-python -m unittest test_gas_blender -v
+python -m unittest discover -s tests -v
 ```
 
 ## Gas blending logic
