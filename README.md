@@ -13,35 +13,45 @@ You provide:
 
 It returns the ordered steps: how much helium to add, how much oxygen to add, and how much air to top up with, along with the intermediate pressure and composition at each stage.
 
-## Architecture
-
-The project has two parts:
+## Project structure
 
 ```
 GasBlender/
 ├── TrimixBlend/
-│   ├── __init__.py     # HTTP trigger endpoint
-│   └── function.json   # Binding config (HTTP GET/POST)
-├── gas_blender.py      # Core gas blending logic (Gas, TrimixBlend, topup_blend)
-├── test_gas_blender.py # Unit tests (unittest)
+│   ├── __init__.py     # Azure HTTP trigger — parses request, calls gas_blender
+│   └── function.json   # Binding config (HTTP POST)
+├── gas_blender.py      # Core logic: Gas, BlendStep, TrimixBlend, topup_blend
+├── test_gas_blender.py # Unit tests (28 tests, unittest)
 ├── index.html          # Static web UI (hosted on Azure Blob Storage)
-├── host.json
-└── requirements.txt
+├── host.json           # Azure Functions runtime config
+├── requirements.txt    # Python dependencies
+└── .funcignore         # Excludes tests/venv from Azure deployment
 ```
 
-### Backend — Azure Function App
+The repo root is the Azure Function app — deploy it directly with the Azure Functions Core Tools or VS Code extension.
 
-The `gasblender/` directory is a Python Azure Functions v2 project. The `TrimixBlend` function exposes an anonymous HTTP endpoint (GET/POST) that accepts a JSON body describing the start gas, finish gas, and helium bank, then returns the complete blend plan as JSON.
+## Hosting
 
-Live endpoint: `https://gasblender.azurewebsites.net/api/TrimixBlend`
+| Component | Azure service |
+|-----------|--------------|
+| API | Azure Function App (`gasblender.azurewebsites.net`) |
+| Frontend | Azure Blob Storage static website |
 
-### Frontend — Azure Static Website
+### Backend
 
-The `gas/index.html` file is a single-page web UI (jQuery + Bootstrap 5) hosted as a static website on Azure Blob Storage. It presents a form for the nine input parameters and calls the Azure Function endpoint directly, displaying the returned step-by-step blending instructions.
+`TrimixBlend/__init__.py` is a Python Azure Functions v4 HTTP trigger. It accepts a JSON body, runs the blend calculation, and returns the result as JSON.
+
+Endpoint: `https://gasblender.azurewebsites.net/api/TrimixBlend`
+
+### Frontend
+
+`index.html` is a single-page form (jQuery + Bootstrap 5) that posts to the Azure Function endpoint and renders the step-by-step blend plan.
 
 ## API
 
 **POST** `https://gasblender.azurewebsites.net/api/TrimixBlend`
+
+All pressures in bar, gas percentages as integers (0–100).
 
 ```json
 {
@@ -51,30 +61,29 @@ The `gas/index.html` file is a single-page web UI (jQuery + Bootstrap 5) hosted 
   "finish_bar": 200,
   "finish_o2": 21,
   "finish_he": 35,
-  "helium_bar": 300,
+  "helium_bar": 250,
   "helium_o2": 0,
   "helium_he": 100
 }
 ```
 
+`helium_bar/o2/he` are optional — omit them to use a default 250 bar pure-helium bank.
+
+Returns HTTP 200 with a JSON blend plan, or HTTP 400 if parameters are missing or invalid.
+
 ## Running locally
-
-### Core library
-
-```bash
-cd gas
-python demo_gasblender.py
-python -m unittest test_gasblender.py
-```
-
-### Azure Function
 
 Requires the [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local).
 
 ```bash
-cd gasblender
 pip install -r requirements.txt
 func host start
+```
+
+### Tests
+
+```bash
+python -m unittest test_gas_blender -v
 ```
 
 ## Gas blending logic
@@ -87,12 +96,12 @@ Three blend types are supported:
 | **Nitrox** | Add O₂ → Top up with air |
 | **Top-up** | Mix two cylinders, calculate final composition |
 
-If the helium bank runs short during a trimix blend, the calculator adjusts the remaining steps to account for the reduced He pressure.
+If the helium bank runs short during a trimix blend, the calculator adds a second helium step using a fresh 250 bar bank before continuing with oxygen and air.
 
 ## Tech stack
 
 - Python 3
-- Azure Functions (Python runtime v2, extension bundle 2.x–3.0)
+- Azure Functions (Python v4 runtime, extension bundle 4.x)
 - Azure Blob Storage (static website hosting)
 - Application Insights (telemetry sampling)
 - jQuery 3.6.0 + Bootstrap 5.2.0
