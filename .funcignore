@@ -3,3 +3,6 @@
 local.settings.json
 tests
 .venv
+index.html
+README.md
+.screenshots
