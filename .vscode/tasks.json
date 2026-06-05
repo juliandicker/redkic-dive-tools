@@ -2,6 +2,11 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "start: all",
+			"dependsOn": ["func: host start", "serve: website"],
+			"dependsOrder": "parallel"
+		},
+		{
 			"type": "func",
 			"label": "func: host start",
 			"command": "host start",
@@ -22,6 +27,22 @@
 				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pip install -r requirements.txt"
 			},
 			"problemMatcher": []
+		},
+		{
+			"label": "serve: website",
+			"type": "shell",
+			"command": "python -m http.server 8080",
+			"isBackground": true,
+			"problemMatcher": {
+				"pattern": {
+					"regexp": "^$"
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^Serving HTTP",
+					"endsPattern": "^$"
+				}
+			}
 		}
 	]
 }
