@@ -40,7 +40,8 @@ python -m http.server 8080            # frontend on :8080
 
 ### Tests
 ```bash
-python -m unittest discover -s tests -v
+pip install -r requirements-dev.txt
+pytest tests/ -v
 ```
 28 tests covering `Gas`, `BlendStep`, `TrimixBlend`, and `topup_blend`.
 
@@ -50,7 +51,7 @@ python -m unittest discover -s tests -v
 - **Snake_case** for functions (`topup_blend`), PascalCase for classes (`Gas`, `TrimixBlend`, `BlendStep`).
 - **No comments** unless the why is non-obvious.
 - **Pinned dependencies** in `requirements.txt` (currently `azure-functions==1.24.0`).
-- **Tests in `tests/`** — unittest, not pytest.
+- **Tests in `tests/`** — pytest, using plain `assert` and `pytest.approx`.
 
 ## Deployment
 

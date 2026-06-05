@@ -84,7 +84,8 @@ func host start
 ### Tests
 
 ```bash
-python -m unittest discover -s tests -v
+pip install -r requirements-dev.txt
+pytest tests/ -v
 ```
 
 ## Gas blending logic
