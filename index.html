@@ -8,6 +8,14 @@
 
 <body>
     <div class="container">
+        <div class="row mb-2">
+            <div class="col-auto">
+                <select id="env" class="form-select form-select-sm">
+                    <option value="http://localhost:7071/api/TrimixBlend">Local</option>
+                    <option value="https://gasblender.azurewebsites.net/api/TrimixBlend">Production</option>
+                </select>
+            </div>
+        </div>
         <div class="row">
             <div class="col">&nbsp;</div>
             <div class="col">Start:</div>
@@ -35,51 +43,64 @@
         <div>
             <button id="btnName">Submit</button>
         </div>
-    </form>
 
-    <div id="result"></div>  
-    <label id="error" style="color:red"></label> 
-
+        <div id="result"></div>
+        <label id="error" style="color:red"></label>
+    </div>
 </body>
 <script>
-    $(document).ready(function () {
-        $("#btnName").on("click", function () {
+    var LOCAL_URL = "http://localhost:7071/api/TrimixBlend";
+    var PROD_URL  = "https://gasblender.azurewebsites.net/api/TrimixBlend";
 
-            datapacket = JSON.stringify({
-                "start_bar": parseInt($("#start_bar").val()),
-                "start_o2": parseInt($("#start_o2").val()),
-                "start_he": parseInt($("#start_he").val()),
+    $(document).ready(function () {
+        var h = window.location.hostname;
+        var isLocal = (h === "localhost" || h === "127.0.0.1" || h === "");
+        $("#env").val(isLocal ? LOCAL_URL : PROD_URL);
+
+        $("#btnName").on("click", function () {
+            $("#error").text("");
+
+            var datapacket = JSON.stringify({
+                "start_bar":  parseInt($("#start_bar").val()),
+                "start_o2":   parseInt($("#start_o2").val()),
+                "start_he":   parseInt($("#start_he").val()),
                 "finish_bar": parseInt($("#finish_bar").val()),
-                "finish_o2": parseInt($("#finish_o2").val()),
-                "finish_he": parseInt($("#finish_he").val()),
+                "finish_o2":  parseInt($("#finish_o2").val()),
+                "finish_he":  parseInt($("#finish_he").val()),
                 "helium_bar": parseInt($("#helium_bar").val()),
-                "helium_o2": parseInt($("#helium_o2").val()),
-                "helium_he": parseInt($("#helium_he").val())
-            })
+                "helium_o2":  parseInt($("#helium_o2").val()),
+                "helium_he":  parseInt($("#helium_he").val())
+            });
 
             $.ajax({
                 type: "POST",
-                url: "https://gasblender.azurewebsites.net/api/TrimixBlend",
+                url: $("#env").val(),
+                contentType: "application/json",
                 data: datapacket,
                 success: function (response) {
-                    json = JSON.parse(response)
+                    var json = typeof response === "string" ? JSON.parse(response) : response;
 
-                    html = '<div class="container">'
-                    html += '<div class="row"><div class="col">&nbsp;</div><div class="col">Start</div><div class="col">Finish</div><div class="col">Test</div></div>'
+                    var html = '<div class="container">';
+                    html += '<div class="row"><div class="col">&nbsp;</div><div class="col">Start</div><div class="col">Finish</div><div class="col">Mix</div></div>';
                     $.each(json.steps, function(i, step) {
-                        diff = Math.round((step.result_gas.bar - step.start_gas.bar) * 100) / 100  
-                        html += '<div class="row"><div class="col">' + step.name + '</div><div class="col">' + step.start_gas.bar + '</div><div class="col">' + step.result_gas.bar + ' ('+ diff +')</div><div class="col">' + step.result_gas.o2 + '/' + step.result_gas.he + '</div></div>'
+                        var diff = Math.round((step.result_gas.bar - step.start_gas.bar) * 100) / 100;
+                        html += '<div class="row">'
+                            + '<div class="col">' + step.name + '</div>'
+                            + '<div class="col">' + step.start_gas.bar + '</div>'
+                            + '<div class="col">' + step.result_gas.bar + ' (' + diff + ')</div>'
+                            + '<div class="col">' + step.result_gas.o2 + '/' + step.result_gas.he + '</div>'
+                            + '</div>';
                     });
-                    html += '</div>'
+                    html += '</div>';
 
                     $("#result").html(html);
                 },
                 error: function(xhr, status, error) {
-                    $("#error").text(error);
+                    $("#error").text(xhr.responseText || error);
                 }
-            })
+            });
         });
-    })
+    });
 </script>
 
 </html>
