@@ -27,7 +27,7 @@ module app 'modules/functionApp.bicep' = {
   scope: rg
   params: {
     location: location
-    functionAppName: appName
+    functionAppName: '${appName}-${resourceToken}'
     storageAccountName: storage.outputs.storageAccountName
     appEnv: environment
   }
