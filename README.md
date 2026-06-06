@@ -39,8 +39,8 @@ Deployment is fully automated via GitHub Actions — push to `main` to deploy.
 
 | Component | Azure service | URL |
 |-----------|--------------|-----|
-| API | Azure Function App (Flex Consumption) | `https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend` |
-| Frontend | Azure Blob Storage static website | `https://stgasblendertcif7s.z16.web.core.windows.net/` |
+| API | Azure Function App (Flex Consumption) | [https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend](https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend) |
+| Frontend | Azure Blob Storage static website | [https://stgasblendertcif7s.z16.web.core.windows.net/](https://stgasblendertcif7s.z16.web.core.windows.net/) |
 
 Infrastructure is defined in `infra/` as Bicep (subscription-scoped) and deployed via GitHub Actions on every push to `main`.
 
@@ -50,7 +50,7 @@ Infrastructure is defined in `infra/` as Bicep (subscription-scoped) and deploye
 
 ### Frontend
 
-`index.html` is a single-page form (jQuery + Bootstrap 5) that posts to the Azure Function endpoint and renders the step-by-step blend plan.
+`index.html` is a single-page form (Bootstrap 5.3, native fetch) that posts to the Azure Function endpoint and renders the step-by-step blend plan.
 
 ## API
 
@@ -112,4 +112,4 @@ If the helium bank runs short during a trimix blend, the calculator adds a secon
 - Application Insights + Log Analytics (telemetry)
 - Bicep (IaC — subscription-scoped, deploys all resources)
 - GitHub Actions + OIDC (CI/CD — no stored credentials)
-- jQuery 3.6.0 + Bootstrap 5.2.0
+- Bootstrap 5.3 (native fetch, no jQuery)
