@@ -70,14 +70,21 @@
                         </div>
                         <div class="mb-3">
                             <label for="helium_o2" class="form-label">O2 %</label>
-                            <input type="number" class="form-control" id="helium_o2" name="helium_o2" min="0" max="100" value="11">
+                            <input type="number" class="form-control" id="helium_o2" name="helium_o2" min="0" max="100" value="0">
                         </div>
                         <div class="mb-0">
                             <label for="helium_he" class="form-label">He %</label>
-                            <input type="number" class="form-control" id="helium_he" name="helium_he" min="0" max="100" value="90">
+                            <input type="number" class="form-control" id="helium_he" name="helium_he" min="0" max="100" value="100">
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <label for="depth_m" class="form-label">Planned Depth (m)</label>
+                <input type="number" class="form-control" id="depth_m" name="depth_m" min="1" max="350" value="40">
             </div>
         </div>
 
@@ -119,7 +126,8 @@
                 finish_he:  int('finish_he'),
                 helium_bar: int('helium_bar'),
                 helium_o2:  int('helium_o2'),
-                helium_he:  int('helium_he')
+                helium_he:  int('helium_he'),
+                depth_m:    int('depth_m')
             });
 
             const h = window.location.hostname;
@@ -137,7 +145,7 @@
                 return response.json();
             })
             .then(function (data) {
-                resultEl.innerHTML = buildResultTable(data);
+                resultEl.innerHTML = buildAnalysis(data.analysis, int('depth_m')) + buildResultTable(data);
             })
             .catch(function (err) {
                 errorEl.textContent = err.message;
@@ -147,6 +155,33 @@
                 btn.disabled = false;
                 btn.innerHTML = 'Calculate';
             });
+        }
+
+        function buildAnalysis(analysis, depth_m) {
+            var densityHtml = '';
+            if (analysis.gas_density !== undefined) {
+                var statusMap = {
+                    safe:    { cls: 'bg-success',              label: 'Safe' },
+                    caution: { cls: 'bg-warning text-dark',    label: 'Elevated risk' },
+                    danger:  { cls: 'bg-danger',               label: 'Exceeds upper limit' }
+                };
+                var s = statusMap[analysis.gas_density_status];
+                densityHtml = '<div class="col-sm-auto">'
+                    + '<div class="small text-muted">Gas Density at ' + depth_m + ' m</div>'
+                    + '<div><span class="badge ' + s.cls + '">' + analysis.gas_density + ' g/L — ' + s.label + '</span></div>'
+                    + '</div>';
+            }
+            return '<div class="row g-3 mb-3">'
+                + '<div class="col-sm-auto">'
+                + '<div class="small text-muted">MOD (ppO₂ 1.4)</div>'
+                + '<div class="fw-semibold">' + analysis.mod_1_4 + ' m</div>'
+                + '</div>'
+                + '<div class="col-sm-auto">'
+                + '<div class="small text-muted">MOD (ppO₂ 1.6)</div>'
+                + '<div class="fw-semibold">' + analysis.mod_1_6 + ' m</div>'
+                + '</div>'
+                + densityHtml
+                + '</div>';
         }
 
         function buildResultTable(data) {

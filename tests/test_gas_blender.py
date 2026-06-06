@@ -1,6 +1,6 @@
 import json
 import pytest
-from gas_blender import Gas, BlendStep, TrimixBlend, topup_blend
+from gas_blender import Gas, BlendStep, TrimixBlend, topup_blend, mod_m, gas_density
 
 
 class TestGas:
@@ -172,3 +172,65 @@ class TestTrimixBlend:
             assert result.steps[i].start_gas.bar == pytest.approx(
                 result.steps[i - 1].result_gas.bar, abs=0.1
             )
+
+
+class TestBlendValidation:
+
+    def test_target_pressure_not_greater_than_start_raises(self):
+        with pytest.raises(ValueError, match="Target pressure"):
+            TrimixBlend(Gas(200, 21, 0), Gas(150, 21, 0))
+
+    def test_target_pressure_equal_to_start_raises(self):
+        with pytest.raises(ValueError, match="Target pressure"):
+            TrimixBlend(Gas(200, 21, 0), Gas(200, 21, 0))
+
+    def test_target_he_lower_in_absolute_terms_raises(self):
+        # Start has more He in absolute bar than target can accommodate
+        with pytest.raises(ValueError, match="helium"):
+            TrimixBlend(Gas(200, 21, 35), Gas(250, 21, 20))
+
+    def test_target_o2_not_achievable_raises(self):
+        # Start is N36, target is air — can't reduce O2% without bleeding
+        with pytest.raises(ValueError, match="Blend not achievable"):
+            TrimixBlend(Gas(200, 36, 0), Gas(250, 21, 0))
+
+    def test_blend_achievable_without_o2_step(self):
+        # 22/50 → 18/40: after He fill, air top-up alone reaches target (no O2 step needed)
+        result = TrimixBlend(Gas(120, 22, 50), Gas(250, 18, 40), Gas(250, 0, 100))
+        final = result.steps[-1].result_gas
+        assert abs(final.o2 - 18) < 1
+        assert abs(final.he - 40) < 2
+        assert abs(final.bar - 250) < 5
+
+
+class TestModAndDensity:
+
+    def test_mod_default_ppo2_is_1_4(self):
+        assert mod_m(21) == mod_m(21, 1.4)
+
+    def test_mod_at_1_4(self):
+        # (1.4 / 0.21 - 1) * 10 = 56.67
+        assert mod_m(21, 1.4) == pytest.approx(56.7, abs=0.1)
+
+    def test_mod_at_1_6(self):
+        # (1.6 / 0.21 - 1) * 10 = 66.19
+        assert mod_m(21, 1.6) == pytest.approx(66.2, abs=0.1)
+
+    def test_mod_nitrox_32(self):
+        # (1.4 / 0.32 - 1) * 10 = 33.75
+        assert mod_m(32, 1.4) == pytest.approx(33.8, abs=0.1)
+
+    def test_gas_density_air_at_30m_matches_bsac(self):
+        # BSAC table: air at 30m ≈ 5.1 g/L
+        assert gas_density(21, 0, 30) == pytest.approx(5.1, abs=0.2)
+
+    def test_gas_density_air_at_40m_matches_bsac(self):
+        # BSAC upper limit 6.3 g/L corresponds to air at ~40m
+        assert gas_density(21, 0, 40) == pytest.approx(6.3, abs=0.2)
+
+    def test_helium_reduces_density(self):
+        # 18/40 trimix at 45m should be less dense than air at same depth
+        assert gas_density(18, 40, 45) < gas_density(21, 0, 45)
+
+    def test_density_increases_with_depth(self):
+        assert gas_density(18, 40, 45) > gas_density(18, 40, 30)

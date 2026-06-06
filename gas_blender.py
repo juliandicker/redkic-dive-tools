@@ -1,5 +1,19 @@
 import json
 
+_MOLAR_VOLUME = 22.4  # L/mol at STP (0°C, 1 atm) — consistent with BSAC gas density tables
+
+
+def mod_m(o2_pct, ppo2=1.4):
+    """Maximum Operating Depth in metres for a given O2% and ppO2 limit."""
+    return round((ppo2 / (o2_pct / 100) - 1) * 10, 1)
+
+
+def gas_density(o2_pct, he_pct, depth_m):
+    """Gas density in g/L at a given depth in metres (BSAC method)."""
+    n2_pct = 100 - o2_pct - he_pct
+    molar_mass = (o2_pct * 32 + n2_pct * 28 + he_pct * 4) / 100
+    return round(molar_mass / _MOLAR_VOLUME * (depth_m / 10 + 1), 2)
+
 
 class Gas:
     def __init__(self, bar, o2, he):
@@ -56,6 +70,11 @@ class TrimixBlend:
 
     def blend(self):
         self.steps = []
+        if self.finish_gas.bar <= self.start_gas.bar:
+            raise ValueError(
+                f"Target pressure ({self.finish_gas.bar} bar) must be greater than "
+                f"start pressure ({self.start_gas.bar} bar)."
+            )
         if self.finish_gas.he == 0:
             self.step_o2(self.start_gas)
         else:
@@ -67,6 +86,11 @@ class TrimixBlend:
         if he_gas.he == 0:
             raise ValueError(f"Helium bank '{name}' contains 0% helium")
         bar_p = (self.finish_gas.bar_he - start_gas.bar_he) * (100 / he_gas.he)
+        if bar_p < 0:
+            raise ValueError(
+                "Blend not achievable: the target contains less helium than the start gas. "
+                "Bleed the cylinder and start again."
+            )
         he_required = start_gas.bar + bar_p > he_gas.bar
         if he_required:
             bar_p = he_gas.bar - start_gas.bar
@@ -77,11 +101,18 @@ class TrimixBlend:
 
     def step_o2(self, start_gas):
         target_o2 = start_gas.bar + self.finish_gas.bar_o2 - start_gas.bar_o2 - ((self.finish_gas.bar_n2 - start_gas.bar_n2) * (0.21 / 0.79))
-        self.add_step("O2", start_gas, Gas(round(target_o2, 1), 100, 0))
+        if target_o2 > start_gas.bar:
+            self.add_step("O2", start_gas, Gas(round(target_o2, 1), 100, 0))
 
     def step_air(self):
-        target_air = self.steps[-1].result_gas.bar + ((self.finish_gas.bar_n2 - self.steps[-1].result_gas.bar_n2) / 0.79)
-        self.add_step("Air", self.steps[-1].result_gas, Gas(round(target_air, 1), 21, 0))
+        current = self.steps[-1].result_gas if self.steps else self.start_gas
+        target_air = current.bar + ((self.finish_gas.bar_n2 - current.bar_n2) / 0.79)
+        if target_air > self.finish_gas.bar + 2:
+            raise ValueError(
+                "Blend not achievable: the start gas contains too much O2 or N2 to reach "
+                "the target mix. Bleed the cylinder and start again."
+            )
+        self.add_step("Air", current, Gas(round(target_air, 1), 21, 0))
 
     def add_step(self, name, start_gas, topup_gas):
         self.steps.append(BlendStep(name, start_gas, topup_blend(start_gas, topup_gas)))
