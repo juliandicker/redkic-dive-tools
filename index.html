@@ -1,106 +1,173 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.0.js"></script>
-    <!-- CSS only -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trimix Blender</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <style>
+        .app-header { background: #0a3d5c; color: #fff; padding: 1rem 0; margin-bottom: 1.5rem; }
+        .app-header small { color: #a8d4e8; }
+    </style>
 </head>
 
 <body>
+    <header class="app-header">
+        <div class="container">
+            <h1 class="h4 mb-0">Trimix Blender</h1>
+            <small>Fill sequence calculator for technical diving</small>
+        </div>
+    </header>
+
     <div class="container">
-        <div class="row mb-2">
-            <div class="col-auto">
-                <select id="env" class="form-select form-select-sm">
-                    <option value="http://localhost:7071/api/TrimixBlend">Local</option>
-                    <option value="https://gasblender.azurewebsites.net/api/TrimixBlend">Production</option>
-                </select>
+<div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-uppercase text-muted small mb-3">Start Mix</h6>
+                        <div class="mb-3">
+                            <label for="start_bar" class="form-label">Bar</label>
+                            <input type="number" class="form-control" id="start_bar" name="start_bar" min="1" max="300" value="120">
+                        </div>
+                        <div class="mb-3">
+                            <label for="start_o2" class="form-label">O2 %</label>
+                            <input type="number" class="form-control" id="start_o2" name="start_o2" min="0" max="100" value="22">
+                        </div>
+                        <div class="mb-0">
+                            <label for="start_he" class="form-label">He %</label>
+                            <input type="number" class="form-control" id="start_he" name="start_he" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-uppercase text-muted small mb-3">Target Mix</h6>
+                        <div class="mb-3">
+                            <label for="finish_bar" class="form-label">Bar</label>
+                            <input type="number" class="form-control" id="finish_bar" name="finish_bar" min="1" max="300" value="250">
+                        </div>
+                        <div class="mb-3">
+                            <label for="finish_o2" class="form-label">O2 %</label>
+                            <input type="number" class="form-control" id="finish_o2" name="finish_o2" min="0" max="100" value="18">
+                        </div>
+                        <div class="mb-0">
+                            <label for="finish_he" class="form-label">He %</label>
+                            <input type="number" class="form-control" id="finish_he" name="finish_he" min="0" max="100" value="40">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-uppercase text-muted small mb-3">Helium Bank</h6>
+                        <div class="mb-3">
+                            <label for="helium_bar" class="form-label">Bar</label>
+                            <input type="number" class="form-control" id="helium_bar" name="helium_bar" min="1" max="300" value="250">
+                        </div>
+                        <div class="mb-3">
+                            <label for="helium_o2" class="form-label">O2 %</label>
+                            <input type="number" class="form-control" id="helium_o2" name="helium_o2" min="0" max="100" value="11">
+                        </div>
+                        <div class="mb-0">
+                            <label for="helium_he" class="form-label">He %</label>
+                            <input type="number" class="form-control" id="helium_he" name="helium_he" min="0" max="100" value="90">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col">&nbsp;</div>
-            <div class="col">Start:</div>
-            <div class="col">Finish:</div>
-            <div class="col">Helium Bank:</div>
-        </div>
-        <div class="row">
-            <div class="col">Bar:</div>
-            <div class="col"><input type="number" min="1" max="300" name="start_bar" id="start_bar" value="120"></div>
-            <div class="col"><input type="number" min="1" max="300" name="finish_bar" id="finish_bar" value="250"></div>
-            <div class="col"><input type="number" min="1" max="300" name="helium_bar" id="helium_bar" value="250"></div>
-        </div>
-        <div class="row">
-            <div class="col">O2:</div>
-            <div class="col"><input type="number" min="0" max="100" name="start_o2" id="start_o2" value="22"></div>
-            <div class="col"><input type="number" min="0" max="100" name="finish_o2" id="finish_o2" value="18"></div>
-            <div class="col"><input type="number" min="0" max="100" name="helium_o2" id="helium_o2" value="11"></div>
-        </div>
-        <div class="row">
-            <div class="col">He:</div>
-            <div class="col"><input type="number" min="0" max="100" name="start_he" id="start_he" value="50"></div>
-            <div class="col"><input type="number" min="0" max="100" name="finish_he" id="finish_he" value="40"></div>
-            <div class="col"><input type="number" min="0" max="100" name="helium_he" id="helium_he" value="90"></div>
-        </div>
-        <div>
-            <button id="btnName">Submit</button>
+
+        <div class="mb-4">
+            <button id="btnCalculate" class="btn btn-primary">Calculate</button>
         </div>
 
+        <div id="error" class="alert alert-danger d-none" role="alert"></div>
         <div id="result"></div>
-        <label id="error" style="color:red"></label>
     </div>
-</body>
-<script>
-    var LOCAL_URL = "http://localhost:7071/api/TrimixBlend";
-    var PROD_URL  = "https://gasblender.azurewebsites.net/api/TrimixBlend";
 
-    $(document).ready(function () {
-        var h = window.location.hostname;
-        var isLocal = (h === "localhost" || h === "127.0.0.1" || h === "");
-        $("#env").val(isLocal ? LOCAL_URL : PROD_URL);
+    <script>
+        const LOCAL_URL = 'http://localhost:7071/api/TrimixBlend';
+        const PROD_URL  = 'https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend';
 
-        $("#btnName").on("click", function () {
-            $("#error").text("");
-
-            var datapacket = JSON.stringify({
-                "start_bar":  parseInt($("#start_bar").val()),
-                "start_o2":   parseInt($("#start_o2").val()),
-                "start_he":   parseInt($("#start_he").val()),
-                "finish_bar": parseInt($("#finish_bar").val()),
-                "finish_o2":  parseInt($("#finish_o2").val()),
-                "finish_he":  parseInt($("#finish_he").val()),
-                "helium_bar": parseInt($("#helium_bar").val()),
-                "helium_o2":  parseInt($("#helium_o2").val()),
-                "helium_he":  parseInt($("#helium_he").val())
-            });
-
-            $.ajax({
-                type: "POST",
-                url: $("#env").val(),
-                contentType: "application/json",
-                data: datapacket,
-                success: function (response) {
-                    var json = typeof response === "string" ? JSON.parse(response) : response;
-
-                    var html = '<div class="container">';
-                    html += '<div class="row"><div class="col">&nbsp;</div><div class="col">Start</div><div class="col">Finish</div><div class="col">Mix</div></div>';
-                    $.each(json.steps, function(i, step) {
-                        var diff = Math.round((step.result_gas.bar - step.start_gas.bar) * 100) / 100;
-                        html += '<div class="row">'
-                            + '<div class="col">' + step.name + '</div>'
-                            + '<div class="col">' + step.start_gas.bar + '</div>'
-                            + '<div class="col">' + step.result_gas.bar + ' (' + diff + ')</div>'
-                            + '<div class="col">' + step.result_gas.o2 + '/' + step.result_gas.he + '</div>'
-                            + '</div>';
-                    });
-                    html += '</div>';
-
-                    $("#result").html(html);
-                },
-                error: function(xhr, status, error) {
-                    $("#error").text(xhr.responseText || error);
-                }
-            });
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('btnCalculate').addEventListener('click', handleCalculate);
         });
-    });
-</script>
+
+        function handleCalculate() {
+            const btn      = document.getElementById('btnCalculate');
+            const errorEl  = document.getElementById('error');
+            const resultEl = document.getElementById('result');
+
+            errorEl.classList.add('d-none');
+            errorEl.textContent = '';
+            resultEl.innerHTML = '';
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Calculating...';
+
+            const int = (id) => parseInt(document.getElementById(id).value, 10);
+            const payload = JSON.stringify({
+                start_bar:  int('start_bar'),
+                start_o2:   int('start_o2'),
+                start_he:   int('start_he'),
+                finish_bar: int('finish_bar'),
+                finish_o2:  int('finish_o2'),
+                finish_he:  int('finish_he'),
+                helium_bar: int('helium_bar'),
+                helium_o2:  int('helium_o2'),
+                helium_he:  int('helium_he')
+            });
+
+            const h = window.location.hostname;
+            const url = (h === 'localhost' || h === '127.0.0.1' || h === '') ? LOCAL_URL : PROD_URL;
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload
+            })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) { throw new Error(text || response.statusText); });
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                resultEl.innerHTML = buildResultTable(data);
+            })
+            .catch(function (err) {
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('d-none');
+            })
+            .finally(function () {
+                btn.disabled = false;
+                btn.innerHTML = 'Calculate';
+            });
+        }
+
+        function buildResultTable(data) {
+            var rows = '';
+            data.steps.forEach(function (step) {
+                var diff = Math.round((step.result_gas.bar - step.start_gas.bar) * 100) / 100;
+                var sign = diff >= 0 ? '+' : '';
+                rows += '<tr>'
+                    + '<td>' + step.name + '</td>'
+                    + '<td>' + step.start_gas.bar + '</td>'
+                    + '<td>' + step.result_gas.bar + ' <span class="text-muted">(' + sign + diff + ')</span></td>'
+                    + '<td>' + step.result_gas.o2 + '/' + step.result_gas.he + '</td>'
+                    + '</tr>';
+            });
+            return '<h6 class="mt-2 mb-2">Fill Sequence</h6>'
+                + '<table class="table table-sm table-bordered">'
+                + '<thead class="table-dark"><tr><th>Step</th><th>Start (bar)</th><th>Finish (bar)</th><th>Mix (O2/He %)</th></tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table>';
+        }
+    </script>
+</body>
 
 </html>
