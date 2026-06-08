@@ -111,11 +111,10 @@ jobs:
             --404-document index.html \
             --account-key $STORAGE_KEY
 
-          az storage blob upload \
+          az storage blob upload-batch \
             --account-name $STORAGE_ACCOUNT \
-            --container-name '$web' \
-            --name index.html \
-            --file index.html \
+            --destination '$web' \
+            --source web/ \
             --overwrite \
             --account-key $STORAGE_KEY
 

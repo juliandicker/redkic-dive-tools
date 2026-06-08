@@ -12,10 +12,13 @@ GasBlender/
 ├── TrimixBlend/function.json # Binding config
 ├── tests/                    # Unit tests (pytest)
 ├── gas_blender.py            # Core logic — single source of truth
-├── index.html                # Web UI (deployed to Azure Blob Storage, not Function App)
+├── web/                      # Static website assets (deployed to Azure Blob Storage, not Function App)
+│   ├── index.html
+│   ├── styles.css
+│   └── diver.jpg
 ├── host.json                 # Azure Functions runtime config
 ├── requirements.txt          # Pinned dependencies
-├── .funcignore               # Excludes tests/, index.html, README.md from deployment
+├── .funcignore               # Excludes tests/, web/, README.md from deployment
 └── infra/
     ├── main.bicep            # Subscription-scoped orchestration — creates resource group + all resources
     ├── main.bicepparam       # Parameter values (appName, environment, location, resourceGroupName)
@@ -38,7 +41,7 @@ Or manually:
 ```bash
 azurite --location .azurite          # local storage emulator
 func host start                       # Azure Function on :7071
-python -m http.server 8080            # frontend on :8080
+python -m http.server 8080 --directory web   # frontend on :8080
 ```
 
 ### CORS

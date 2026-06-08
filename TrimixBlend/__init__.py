@@ -1,7 +1,7 @@
 import json
 import logging
 import azure.functions as func
-from gas_blender import Gas, TrimixBlend, mod_m, gas_density
+from gas_blender import Gas, TrimixBlend, mod_m, density_depth, end_depth
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -10,7 +10,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     start_bar = start_o2 = start_he = None
     finish_bar = finish_o2 = finish_he = None
     helium_bar = helium_o2 = helium_he = None
-    depth_m = None
 
     try:
         req_body = req.get_json()
@@ -23,7 +22,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         helium_bar = req_body.get('helium_bar')
         helium_o2 = req_body.get('helium_o2')
         helium_he = req_body.get('helium_he')
-        depth_m = req_body.get('depth_m')
     except ValueError:
         return func.HttpResponse("Request body must be valid JSON.", status_code=400)
 
@@ -50,19 +48,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     response = json.loads(result.toJSON())
 
     analysis = {
+        'mod_1_2': mod_m(finish_o2, 1.2),
         'mod_1_4': mod_m(finish_o2, 1.4),
         'mod_1_6': mod_m(finish_o2, 1.6),
+        'density_max_depth':   density_depth(finish_o2, finish_he, 5.2),
+        'density_limit_depth': density_depth(finish_o2, finish_he, 6.3),
+        'end_30_depth': end_depth(finish_o2, finish_he, 30),
+        'end_40_depth': end_depth(finish_o2, finish_he, 40),
     }
-    if depth_m is not None:
-        density = gas_density(finish_o2, finish_he, depth_m)
-        if density <= 5.2:
-            status = 'safe'
-        elif density <= 6.3:
-            status = 'caution'
-        else:
-            status = 'danger'
-        analysis['gas_density'] = density
-        analysis['gas_density_status'] = status
 
     response['analysis'] = analysis
 

@@ -31,7 +31,7 @@
 		{
 			"label": "serve: website",
 			"type": "shell",
-			"command": "python -m http.server 8080",
+			"command": "python -m http.server 8080 --directory web",
 			"isBackground": true,
 			"problemMatcher": {
 				"pattern": {

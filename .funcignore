@@ -4,7 +4,7 @@
 local.settings.json
 tests
 .venv
-index.html
+web
 README.md
 CLAUDE.md
 pytest.ini

@@ -1,6 +1,6 @@
 import json
 import pytest
-from gas_blender import Gas, BlendStep, TrimixBlend, topup_blend, mod_m, gas_density
+from gas_blender import Gas, BlendStep, TrimixBlend, topup_blend, mod_m, gas_density, density_depth, end_m, end_depth, best_mix
 
 
 class TestGas:
@@ -130,11 +130,11 @@ class TestTrimixBlend:
         result = TrimixBlend(self.b_empty_air, self.b_full_n36, self.b_full_he)
         names = [s.name for s in result.steps]
         assert "He" not in names
-        assert names == ["O2", "Air"]
+        assert names == ["O₂", "Air"]
 
     def test_trimix_step_order(self):
         result = TrimixBlend(self.b_empty_air, self.b_full_1840, self.b_full_he)
-        assert [s.name for s in result.steps] == ["He", "O2", "Air"]
+        assert [s.name for s in result.steps] == ["He", "O₂", "Air"]
 
     def test_final_step_reaches_target_pressure(self):
         result = TrimixBlend(self.b_empty_air, self.b_full_1840, self.b_full_he)
@@ -194,6 +194,16 @@ class TestBlendValidation:
         with pytest.raises(ValueError, match="Blend not achievable"):
             TrimixBlend(Gas(200, 36, 0), Gas(250, 21, 0))
 
+    def test_he_bank_at_start_pressure_raises(self):
+        # Cylinder already at He bank pressure — infinite recursion guard
+        with pytest.raises(ValueError, match="He bank exhausted"):
+            TrimixBlend(Gas(250, 21, 0), Gas(300, 18, 40), Gas(250, 0, 100))
+
+    def test_start_n2_too_high_raises(self):
+        # 100 bar Air into EAN32 at 110 bar: start N2 partial exceeds target N2 partial
+        with pytest.raises(ValueError, match="Blend not achievable"):
+            TrimixBlend(Gas(100, 21, 0), Gas(110, 32, 0))
+
     def test_blend_achievable_without_o2_step(self):
         # 22/50 → 18/40: after He fill, air top-up alone reaches target (no O2 step needed)
         result = TrimixBlend(Gas(120, 22, 50), Gas(250, 18, 40), Gas(250, 0, 100))
@@ -234,3 +244,68 @@ class TestModAndDensity:
 
     def test_density_increases_with_depth(self):
         assert gas_density(18, 40, 45) > gas_density(18, 40, 30)
+
+    def test_density_depth_inverse_of_gas_density_air(self):
+        depth = density_depth(21, 0, 5.2)
+        assert gas_density(21, 0, depth) == pytest.approx(5.2, abs=0.05)
+
+    def test_density_depth_inverse_of_gas_density_trimix(self):
+        depth = density_depth(18, 40, 6.3)
+        assert gas_density(18, 40, depth) == pytest.approx(6.3, abs=0.05)
+
+    def test_density_depth_he_rich_mix_higher_than_air(self):
+        # He-rich mix reaches density limits at greater depth than air
+        assert density_depth(18, 40, 5.2) > density_depth(21, 0, 5.2)
+
+    def test_best_mix_shallow_no_he(self):
+        # At 20m density is not a constraint — no He needed
+        o2, he = best_mix(20, ppo2=1.4)
+        assert he == 0
+        assert o2 == pytest.approx(47, abs=1)  # 1.4 / 3.0 bar = 46.7%
+
+    def test_best_mix_deep_has_he(self):
+        o2, he = best_mix(45, ppo2=1.4)
+        assert he > 0
+
+    def test_best_mix_density_at_or_under_limit(self):
+        for depth in [30, 45, 60, 75]:
+            o2, he = best_mix(depth, ppo2=1.4, density_limit=5.2)
+            assert gas_density(o2, he, depth) <= 5.2 + 0.1
+
+    def test_best_mix_o2_tracks_ppo2(self):
+        # O2% should equal ppO2 / P_abs * 100 (rounded)
+        depth, ppo2 = 40, 1.4
+        o2, _ = best_mix(depth, ppo2=ppo2)
+        expected = round(ppo2 / (depth / 10 + 1) * 100)
+        assert o2 == expected
+
+    def test_best_mix_components_valid(self):
+        for depth in [20, 40, 60, 80, 100, 120]:
+            o2, he = best_mix(depth)
+            assert 0 <= o2 <= 100
+            assert 0 <= he <= 100
+            assert o2 + he <= 100
+
+    def test_end_air_equals_actual_depth(self):
+        # Air has no He, so END = actual depth
+        assert end_m(21, 0, 40) == pytest.approx(40, abs=0.1)
+
+    def test_end_trimix_less_than_actual_depth(self):
+        # He dilutes narcosis — END must be shallower than actual depth
+        assert end_m(18, 40, 50) < 50
+
+    def test_end_trimix_18_45_at_50m(self):
+        # (50/10 + 1) * 0.55 - 1) * 10 = (6 * 0.55 - 1) * 10 = (3.3 - 1) * 10 = 23 m
+        assert end_m(18, 45, 50) == pytest.approx(23.0, abs=0.1)
+
+    def test_end_depth_inverse_of_end_m_air(self):
+        depth = end_depth(21, 0, 30)
+        assert end_m(21, 0, depth) == pytest.approx(30, abs=0.05)
+
+    def test_end_depth_inverse_of_end_m_trimix(self):
+        depth = end_depth(18, 40, 30)
+        assert end_m(18, 40, depth) == pytest.approx(30, abs=0.05)
+
+    def test_end_depth_he_rich_mix_deeper_than_air(self):
+        # He-rich mix reaches END limits at greater actual depth than air
+        assert end_depth(18, 40, 30) > end_depth(21, 0, 30)
