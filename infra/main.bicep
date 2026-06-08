@@ -4,6 +4,7 @@ param appName string = 'gasblender'
 param location string = 'northeurope'
 param environment string = 'prod'
 param resourceGroupName string = 'rg-gasblender-prod'
+param dnsSubscriptionId string
 param dnsResourceGroupName string = 'rg-dns-services-shared-001'
 param customDomainHostname string = 'gasblender.redkic.co.uk'
 
@@ -46,7 +47,7 @@ module swa 'modules/staticWebApp.bicep' = {
 
 module dns 'modules/dns.bicep' = {
   name: 'dns-deploy'
-  scope: resourceGroup(dnsResourceGroupName)
+  scope: resourceGroup(dnsSubscriptionId, dnsResourceGroupName)
   params: {
     targetHostname: swa.outputs.defaultHostname
   }
