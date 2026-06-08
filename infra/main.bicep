@@ -41,7 +41,6 @@ module swa 'modules/staticWebApp.bicep' = {
   scope: rg
   params: {
     staticWebAppName: staticWebAppName
-    location: location
   }
 }
 
