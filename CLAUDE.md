@@ -26,8 +26,7 @@ GasBlender/
     └── modules/
         ├── storage.bicep     # StorageV2 storage account (Function App storage + static website)
         ├── functionApp.bicep # Log Analytics → App Insights → FC1 plan → Function App
-        ├── cdn.bicep         # CDN profile + endpoint fronting static website
-        ├── cdn-domain.bicep  # Custom domain attachment
+        ├── cdn.bicep         # Azure Front Door Standard — profile, endpoint, origin, custom domain + managed TLS
         └── dns.bicep         # CNAME record in shared DNS zone (rg-dns-services-shared-001)
 ```
 
@@ -96,8 +95,8 @@ az deployment sub what-if --location northeurope \              # dry run
 | App Service Plan | `asp-gasblender-prod` | FC1 / FlexConsumption |
 | App Insights | `appi-gasblender-prod` | Workspace-based |
 | Log Analytics | `log-gasblender-prod` | 30-day retention |
-| CDN profile | `cdnp-gasblender-prod` | Standard Microsoft |
-| CDN endpoint | `gasblender-<token>` | Fronts storage static website |
+| Front Door profile | `afd-gasblender-prod` | Standard_AzureFrontDoor |
+| Front Door endpoint | `gasblender-<token>` | Fronts storage static website, custom domain + managed TLS |
 
 - Frontend: `https://gasblender.redkic.co.uk/` (CDN custom domain)
 - Storage origin: `https://stgasblendertcif7s.z16.web.core.windows.net/`

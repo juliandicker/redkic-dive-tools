@@ -38,7 +38,6 @@ jobs:
       functionAppName: ${{ steps.bicep.outputs.functionAppName }}
       cdnProfileName: ${{ steps.bicep.outputs.cdnProfileName }}
       cdnEndpointName: ${{ steps.bicep.outputs.cdnEndpointName }}
-      customDomainResourceName: ${{ steps.bicep.outputs.customDomainResourceName }}
     steps:
       - uses: actions/checkout@v6
 
@@ -61,22 +60,6 @@ jobs:
           echo "functionAppName=$(echo $output | jq -r '.functionAppName.value')" >> $GITHUB_OUTPUT
           echo "cdnProfileName=$(echo $output | jq -r '.cdnProfileName.value')" >> $GITHUB_OUTPUT
           echo "cdnEndpointName=$(echo $output | jq -r '.cdnEndpointName.value')" >> $GITHUB_OUTPUT
-          echo "customDomainResourceName=$(echo $output | jq -r '.customDomainResourceName.value')" >> $GITHUB_OUTPUT
-
-      - name: Enable HTTPS on custom domain
-        env:
-          RESOURCE_GROUP: rg-gasblender-prod
-          CDN_PROFILE: ${{ steps.bicep.outputs.cdnProfileName }}
-          CDN_ENDPOINT: ${{ steps.bicep.outputs.cdnEndpointName }}
-          CUSTOM_DOMAIN: ${{ steps.bicep.outputs.customDomainResourceName }}
-        run: |
-          az cdn custom-domain enable-https \
-            --resource-group $RESOURCE_GROUP \
-            --profile-name $CDN_PROFILE \
-            --endpoint-name $CDN_ENDPOINT \
-            --name $CUSTOM_DOMAIN \
-            --min-tls-version 1.2 \
-            --only-show-errors || true
 
   deploy-function:
     name: Deploy Function App
@@ -145,8 +128,8 @@ jobs:
           CDN_PROFILE: ${{ needs.infra.outputs.cdnProfileName }}
           CDN_ENDPOINT: ${{ needs.infra.outputs.cdnEndpointName }}
         run: |
-          az cdn endpoint purge \
+          az afd endpoint purge \
             --resource-group $RESOURCE_GROUP \
             --profile-name $CDN_PROFILE \
-            --name $CDN_ENDPOINT \
+            --endpoint-name $CDN_ENDPOINT \
             --content-paths '/*'
