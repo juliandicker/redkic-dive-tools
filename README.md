@@ -25,12 +25,15 @@ GasBlender/
 ├── infra/
 │   ├── main.bicep      # Subscription-scoped Bicep — creates resource group + all resources
 │   ├── main.bicepparam # Parameter values
-│   └── modules/        # storage.bicep, functionApp.bicep
+│   └── modules/        # storage.bicep, functionApp.bicep, cdn.bicep, cdn-domain.bicep, dns.bicep
+├── web/
+│   ├── index.html      # Static web UI
+│   ├── app.js          # Frontend logic
+│   └── styles.css
 ├── gas_blender.py      # Core logic: Gas, BlendStep, TrimixBlend, topup_blend
-├── index.html          # Static web UI (hosted on Azure Blob Storage)
 ├── host.json           # Azure Functions runtime config
 ├── requirements.txt    # Python dependencies
-└── .funcignore         # Excludes tests/, index.html etc from Azure deployment
+└── .funcignore         # Excludes tests/, web/, README.md from Azure deployment
 ```
 
 Deployment is fully automated via GitHub Actions — push to `main` to deploy.
@@ -40,7 +43,7 @@ Deployment is fully automated via GitHub Actions — push to `main` to deploy.
 | Component | Azure service | URL |
 |-----------|--------------|-----|
 | API | Azure Function App (Flex Consumption) | [https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend](https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend) |
-| Frontend | Azure Blob Storage static website | [https://stgasblendertcif7s.z16.web.core.windows.net/](https://stgasblendertcif7s.z16.web.core.windows.net/) |
+| Frontend | Azure CDN → Blob Storage static website | [https://gasblender.redkic.co.uk/](https://gasblender.redkic.co.uk/) |
 
 Infrastructure is defined in `infra/` as Bicep (subscription-scoped) and deployed via GitHub Actions on every push to `main`.
 
@@ -50,7 +53,7 @@ Infrastructure is defined in `infra/` as Bicep (subscription-scoped) and deploye
 
 ### Frontend
 
-`index.html` is a single-page form (Bootstrap 5.3, native fetch) that posts to the Azure Function endpoint and renders the step-by-step blend plan.
+`web/index.html` + `web/app.js` is a single-page form (Bootstrap 5.3, native fetch) that posts to the Azure Function endpoint and renders the step-by-step blend plan. Served via Azure CDN at `gasblender.redkic.co.uk`.
 
 ## API
 
@@ -108,7 +111,7 @@ If the helium bank runs short during a trimix blend, the calculator adds a secon
 
 - Python 3
 - Azure Functions (Python v4 runtime, Flex Consumption plan)
-- Azure Blob Storage (static website hosting)
+- Azure Blob Storage (static website hosting) + Azure CDN (custom domain, HTTPS)
 - Application Insights + Log Analytics (telemetry)
 - Bicep (IaC — subscription-scoped, deploys all resources)
 - GitHub Actions + OIDC (CI/CD — no stored credentials)

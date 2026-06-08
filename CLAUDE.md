@@ -14,6 +14,7 @@ GasBlender/
 ├── gas_blender.py            # Core logic — single source of truth
 ├── web/                      # Static website assets (deployed to Azure Blob Storage, not Function App)
 │   ├── index.html
+│   ├── app.js
 │   ├── styles.css
 │   └── diver.jpg
 ├── host.json                 # Azure Functions runtime config
@@ -21,10 +22,13 @@ GasBlender/
 ├── .funcignore               # Excludes tests/, web/, README.md from deployment
 └── infra/
     ├── main.bicep            # Subscription-scoped orchestration — creates resource group + all resources
-    ├── main.bicepparam       # Parameter values (appName, environment, location, resourceGroupName)
+    ├── main.bicepparam       # Parameter values (appName, environment, location, resourceGroupName, dnsResourceGroupName, customDomainHostname)
     └── modules/
         ├── storage.bicep     # StorageV2 storage account (Function App storage + static website)
-        └── functionApp.bicep # Log Analytics → App Insights → FC1 plan → Function App
+        ├── functionApp.bicep # Log Analytics → App Insights → FC1 plan → Function App
+        ├── cdn.bicep         # CDN profile + endpoint fronting static website
+        ├── cdn-domain.bicep  # Custom domain attachment
+        └── dns.bicep         # CNAME record in shared DNS zone (rg-dns-services-shared-001)
 ```
 
 ## Local development
@@ -67,12 +71,12 @@ pytest tests/ -v
 Push to `main` — GitHub Actions handles everything in order:
 
 1. **Test** — pytest
-2. **Deploy Infrastructure** — `az deployment sub create` with Bicep (idempotent)
-3. **Deploy Function App** + **Deploy Static Website** — run in parallel
+2. **Deploy Infrastructure** — `az deployment sub create` with Bicep (idempotent); also enables HTTPS on the CDN custom domain
+3. **Deploy Function App** + **Deploy Static Website** — run in parallel; static website deploy also purges the CDN cache
 
 CI/CD uses OIDC federated identity (no stored secrets beyond `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
 
-The `index.html` environment selector auto-detects local vs production based on hostname — no changes needed between environments.
+`app.js` auto-detects local vs production based on hostname — no changes needed between environments.
 
 To test Bicep changes locally before pushing:
 ```bash
@@ -92,8 +96,11 @@ az deployment sub what-if --location northeurope \              # dry run
 | App Service Plan | `asp-gasblender-prod` | FC1 / FlexConsumption |
 | App Insights | `appi-gasblender-prod` | Workspace-based |
 | Log Analytics | `log-gasblender-prod` | 30-day retention |
+| CDN profile | `cdnp-gasblender-prod` | Standard Microsoft |
+| CDN endpoint | `gasblender-<token>` | Fronts storage static website |
 
-- Static website: `https://stgasblendertcif7s.z16.web.core.windows.net/`
+- Frontend: `https://gasblender.redkic.co.uk/` (CDN custom domain)
+- Storage origin: `https://stgasblendertcif7s.z16.web.core.windows.net/`
 - API endpoint: `https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend`
 - Function auth: anonymous (no API key required)
 - Extension bundle: `[4.*, 5.0.0)` (host.json)
