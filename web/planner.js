@@ -64,6 +64,12 @@ function gasName(o2, he) {
     return 'Tx' + o2 + '/' + he;
 }
 
+function gasNameCompact(o2, he) {
+    if (o2 === 100) return 'O₂';
+    if (he === 0) { return o2 === 21 ? 'Air' : o2 + '%'; }
+    return o2 + '/' + he;
+}
+
 // ── Gas library state ─────────────────────────────────────────────────────────
 
 var gasLibrary = [];
@@ -371,11 +377,12 @@ function buildResult(data) {
     var gO2       = gas ? gas.o2 : 21;
     var gHe       = gas ? gas.he : 0;
     var gName     = gas ? gasName(gO2, gHe) : '—';
+    var gShort    = gas ? gasNameCompact(gO2, gHe) : '—';
     var descTime  = Math.round(depthM / 20.0 * 10) / 10;
     var btRuntime = Math.round((depthM / 20.0 + btMin) * 10) / 10;
 
     function densStr(d) {
-        return (surfaceDensity(gO2, gHe) * (d / 10.0 + 1.0)).toFixed(2) + ' g/L';
+        return (surfaceDensity(gO2, gHe) * (d / 10.0 + 1.0)).toFixed(2);
     }
     function densColor(d) {
         var v = surfaceDensity(gO2, gHe) * (d / 10.0 + 1.0);
@@ -396,8 +403,8 @@ function buildResult(data) {
     thead.innerHTML =
         '<tr>' +
         '<th class="ps-2" style="width:2rem"></th>' +
-        '<th>Depth</th><th>Time</th><th>Runtime</th>' +
-        '<th>ppO₂</th><th>Density</th><th>Gas</th>' +
+        '<th>Depth</th><th>T</th><th>RT</th>' +
+        '<th>ppO₂</th><th>g/L</th><th>Gas</th>' +
         '</tr>';
     table.appendChild(thead);
 
@@ -408,24 +415,24 @@ function buildResult(data) {
     var trDesc = document.createElement('tr');
     trDesc.innerHTML =
         '<td class="ps-2"><i class="bi bi-arrow-down-circle" style="color:#0077b6"></i></td>' +
-        '<td>0 → ' + depthM + ' m</td>' +
-        '<td>' + descTime + ' min</td>' +
-        '<td>' + descTime + ' min</td>' +
+        '<td>0→' + depthM + 'm</td>' +
+        '<td>' + descTime + '</td>' +
+        '<td>' + descTime + '</td>' +
         '<td>' + sp.toFixed(2) + '</td>' +
         '<td' + (dcDesc ? ' style="color:' + dcDesc + '"' : '') + '>' + densStr(depthM) + '</td>' +
-        '<td>' + gName + '</td>';
+        '<td>' + gShort + '</td>';
     tbody.appendChild(trDesc);
 
     // Bottom row
     var trBtm = document.createElement('tr');
     trBtm.innerHTML =
         '<td class="ps-2"><i class="bi bi-circle-fill" style="color:#03045e;font-size:0.55em;vertical-align:middle"></i></td>' +
-        '<td>' + depthM + ' m</td>' +
-        '<td>' + btMin + ' min</td>' +
-        '<td>' + btRuntime + ' min</td>' +
+        '<td>' + depthM + 'm</td>' +
+        '<td>' + btMin + '</td>' +
+        '<td>' + btRuntime + '</td>' +
         '<td>' + sp.toFixed(2) + '</td>' +
         '<td' + (dcDesc ? ' style="color:' + dcDesc + '"' : '') + '>' + densStr(depthM) + '</td>' +
-        '<td>' + gName + '</td>';
+        '<td>' + gShort + '</td>';
     tbody.appendChild(trBtm);
 
     if (data.stops.length === 0) {
@@ -434,12 +441,12 @@ function buildResult(data) {
         var trAsc = document.createElement('tr');
         trAsc.innerHTML =
             '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#198754"></i></td>' +
-            '<td>' + depthM + ' → 0 m</td>' +
-            '<td>' + ascTime + ' min</td>' +
-            '<td>' + ascRuntime + ' min</td>' +
+            '<td>' + depthM + '→0m</td>' +
+            '<td>' + ascTime + '</td>' +
+            '<td>' + ascRuntime + '</td>' +
             '<td>' + sp.toFixed(2) + '</td>' +
             '<td>—</td>' +
-            '<td>' + gName + '</td>';
+            '<td>' + gShort + '</td>';
         tbody.appendChild(trAsc);
     } else {
         data.stops.forEach(function (stop) {
@@ -447,12 +454,12 @@ function buildResult(data) {
             var tr = document.createElement('tr');
             tr.innerHTML =
                 '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#e07000"></i></td>' +
-                '<td>' + stop.depth_m + ' m</td>' +
-                '<td>' + stop.time_min + ' min</td>' +
-                '<td>' + stop.runtime_min + ' min</td>' +
+                '<td>' + stop.depth_m + 'm</td>' +
+                '<td>' + stop.time_min + '</td>' +
+                '<td>' + stop.runtime_min + '</td>' +
                 '<td>' + sp.toFixed(2) + '</td>' +
                 '<td' + (dc ? ' style="color:' + dc + '"' : '') + '>' + densStr(stop.depth_m) + '</td>' +
-                '<td>' + gName + '</td>';
+                '<td>' + gShort + '</td>';
             tbody.appendChild(tr);
         });
     }
