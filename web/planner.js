@@ -551,22 +551,32 @@ function buildChart(data) {
     setTimeout(function () {
         renderProfileChart(profileCanvas, data);
 
-        profileCanvas.addEventListener('mousemove', function (e) {
+        function hoverAtX(offsetX) {
             if (!_profileChart || !_tissueChart) return;
-            var xVal = _profileChart.scales.x.getValueForPixel(e.offsetX);
+            var xVal = _profileChart.scales.x.getValueForPixel(offsetX);
             var pts = data.profile_points;
             if (!pts || !pts.length) return;
             var nearest = pts.reduce(function (prev, curr) {
                 return Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev;
             });
             if (nearest && nearest.sats) _updateTissueData(nearest.sats, nearest.t);
-        });
+        }
 
-        profileCanvas.addEventListener('mouseleave', function () {
+        function resetTissue() {
             if (!_tissueChart) return;
             var finalSats = data.tissue_saturations;
             if (finalSats) _updateTissueData(finalSats, null);
-        });
+        }
+
+        profileCanvas.addEventListener('mousemove', function (e) { hoverAtX(e.offsetX); });
+        profileCanvas.addEventListener('mouseleave', resetTissue);
+
+        profileCanvas.addEventListener('touchmove', function (e) {
+            var touch = e.touches[0];
+            var rect = profileCanvas.getBoundingClientRect();
+            hoverAtX(touch.clientX - rect.left);
+        }, { passive: true });
+        profileCanvas.addEventListener('touchend', resetTissue);
     }, 0);
 
     return wrap;
