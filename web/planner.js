@@ -525,12 +525,12 @@ function buildChart(data) {
     profileBox.appendChild(profileCanvas);
     wrap.appendChild(profileBox);
 
-    // Tissue panel (hidden by default)
+    // Tissue panel (visible by default)
     var tissueToggle = document.createElement('button');
     tissueToggle.className = 'btn btn-sm btn-outline-secondary w-100 tissue-toggle';
-    tissueToggle.textContent = 'Show Tissue Saturation';
+    tissueToggle.textContent = 'Hide Tissue Saturation';
     var tissuePanel = document.createElement('div');
-    tissuePanel.style.display = 'none';
+    tissuePanel.style.display = 'block';
     var tissueBox = document.createElement('div');
     tissueBox.style.height = '200px';
     tissueBox.style.position = 'relative';
@@ -550,6 +550,7 @@ function buildChart(data) {
     // Render profile chart on next tick (canvas needs to be in DOM for sizing)
     setTimeout(function () {
         renderProfileChart(profileCanvas, data);
+        renderTissueChart(tissueCanvas, data);
 
         function hoverAtX(offsetX) {
             if (!_profileChart || !_tissueChart) return;
