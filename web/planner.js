@@ -378,8 +378,8 @@ function buildResult(data) {
     var gHe       = gas ? gas.he : 0;
     var gName     = gas ? gasName(gO2, gHe) : '—';
     var gShort    = gas ? gasNameCompact(gO2, gHe) : '—';
-    var descTime  = Math.round(depthM / 20.0 * 10) / 10;
-    var btRuntime = Math.round((depthM / 20.0 + btMin) * 10) / 10;
+    var descTime  = Math.round(depthM / 20.0);
+    var btRuntime = Math.round(depthM / 20.0 + btMin);
 
     function densStr(d) {
         return (surfaceDensity(gO2, gHe) * (d / 10.0 + 1.0)).toFixed(2);
@@ -436,8 +436,8 @@ function buildResult(data) {
     tbody.appendChild(trBtm);
 
     if (data.stops.length === 0) {
-        var ascTime = Math.round(depthM / 9.0 * 10) / 10;
-        var ascRuntime = Math.round((depthM / 20.0 + btMin + depthM / 9.0) * 10) / 10;
+        var ascTime = Math.round(depthM / 9.0);
+        var ascRuntime = Math.round(depthM / 20.0 + btMin + depthM / 9.0);
         var trAsc = document.createElement('tr');
         trAsc.innerHTML =
             '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#198754"></i></td>' +
@@ -456,7 +456,7 @@ function buildResult(data) {
                 '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#e07000"></i></td>' +
                 '<td>' + stop.depth_m + 'm</td>' +
                 '<td>' + stop.time_min + '</td>' +
-                '<td>' + stop.runtime_min + '</td>' +
+                '<td>' + Math.round(stop.runtime_min) + '</td>' +
                 '<td>' + sp.toFixed(2) + '</td>' +
                 '<td' + (dc ? ' style="color:' + dc + '"' : '') + '>' + densStr(stop.depth_m) + '</td>' +
                 '<td>' + gShort + '</td>';
