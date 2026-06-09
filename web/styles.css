@@ -1,3 +1,5 @@
+@import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css");
+
 :root {
     --navy:        #0d1f35;
     --ocean:       #1a4a72;
@@ -121,6 +123,37 @@ body::before {
 #targetAccordion .accordion-button:focus { box-shadow: none; }
 #targetAccordion .accordion-button::after { filter: hue-rotate(180deg) brightness(0.6); }
 #targetAccordion .accordion-body { padding: 0.5rem 0.7rem 0.7rem; }
+
+/* ── Nav hamburger ───────────────────────── */
+.btn-hamburger {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    font-size: 1.3rem;
+    line-height: 1;
+    border-radius: 0.25rem;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+.btn-hamburger:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+/* ── Nav offcanvas links ─────────────────── */
+.nav-offcanvas-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: var(--navy);
+    border-radius: 8px;
+    transition: background 0.15s;
+    margin-bottom: 0.25rem;
+}
+.nav-offcanvas-link:hover { background: var(--surface); color: var(--ocean); }
+.nav-offcanvas-link.active { background: #eef2f8; color: var(--ocean); }
+.nav-page-title { font-weight: 700; font-size: 0.95rem; }
+.nav-page-desc { font-size: 0.77rem; color: var(--muted); margin-top: 0.1rem; }
+.nav-offcanvas-link.active .nav-page-desc { color: var(--ocean); opacity: 0.7; }
 
 /* ── Info buttons ────────────────────────── */
 .info-btn {

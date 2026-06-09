@@ -1,0 +1,333 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dive Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css?v=3">
+    <style>
+        .deco-table th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+        .deco-table td { font-weight: 600; font-size: 0.9rem; vertical-align: middle; }
+        .deco-table tr:last-child td { color: var(--ocean); }
+        .field-label { font-size: 0.73rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+        .density-warning { font-size: 0.82rem; }
+        .nav-link-back { font-size: 0.78rem; color: var(--aqua-light); text-decoration: none; opacity: 0.85; }
+        .nav-link-back:hover { opacity: 1; color: #fff; }
+        .gf-row { display: flex; gap: 0.5rem; }
+        .gf-row .input-group { flex: 1; }
+        .btn-cog { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; padding: 0.2rem 0.35rem; font-size: 1.1rem; line-height: 1; border-radius: 0.25rem; transition: color 0.15s, background 0.15s; }
+        .btn-cog:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+        /* ── Dive profile chart ─── */
+        .chart-wrap { background: rgba(255,255,255,0.55); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+        .chart-wrap:fullscreen { background: #fff; padding: 1.5rem; display: flex; flex-direction: column; }
+        .chart-wrap:fullscreen .profile-canvas { flex: 1 1 0; min-height: 0; height: auto !important; }
+        .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+        .chart-fs-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0.15rem 0.3rem; border-radius: 4px; line-height: 1; transition: color 0.15s; }
+        .chart-fs-btn:hover { color: var(--navy); }
+        .tissue-toggle { font-size: 0.72rem; margin-top: 0.75rem; }
+
+        /* ── Gas library ─── */
+        .gas-library { max-height: 310px; overflow-y: auto; }
+        .gas-card {
+            background: rgba(255,255,255,0.55);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.55rem 0.65rem;
+            margin-bottom: 0.45rem;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .gas-card-active {
+            border-color: var(--aqua);
+            background: rgba(0,150,183,0.07);
+        }
+        .gas-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem; }
+        .gas-card-name { font-size: 0.98rem; font-weight: 800; color: var(--navy); line-height: 1; }
+        .gas-card-active .gas-card-name { color: var(--ocean); }
+        .gas-card-meta { font-size: 0.66rem; color: var(--muted); margin-bottom: 0.25rem; }
+        .gas-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.25rem; }
+        .gas-depth-badge { font-size: 0.63rem; color: var(--muted); }
+        .btn-gas-action {
+            background: none; border: none; padding: 0.1rem 0.22rem;
+            color: var(--muted); cursor: pointer; font-size: 0.78rem;
+            border-radius: 3px; line-height: 1; transition: color 0.15s;
+        }
+        .btn-gas-action:hover { color: var(--navy); }
+        .btn-gas-toggle {
+            background: none; border: 1px solid var(--border); border-radius: 20px;
+            padding: 0.1rem 0.5rem; font-size: 0.63rem; font-weight: 600;
+            color: var(--muted); cursor: pointer; display: inline-flex;
+            align-items: center; gap: 0.2rem; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-gas-toggle:hover { border-color: var(--aqua); color: var(--aqua); }
+        .btn-gas-toggle.active { background: var(--aqua); border-color: var(--aqua); color: #fff; }
+        .btn-add-gas {
+            background: none; border: 1.5px solid var(--border); color: var(--ocean);
+            border-radius: 50%; width: 22px; height: 22px; display: inline-flex;
+            align-items: center; justify-content: center; font-size: 0.85rem;
+            line-height: 1; cursor: pointer; transition: all 0.15s; padding: 0; flex-shrink: 0;
+        }
+        .btn-add-gas:hover { background: var(--ocean); color: #fff; border-color: var(--ocean); }
+        /* ── Saved plans ─── */
+        .plan-card { background: rgba(255,255,255,0.8); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; }
+        .plan-card-name { font-size: 0.9rem; font-weight: 800; color: var(--navy); }
+        .plan-card-meta { font-size: 0.68rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.4; }
+        .plan-card-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+    </style>
+</head>
+
+<body>
+    <header class="app-header mb-4">
+        <div class="container d-flex align-items-center gap-3">
+            <div class="flex-grow-1">
+                <h1 class="mb-0">Dive Planner</h1>
+                <div class="tagline">Bühlmann ZHL-16C decompression planner &mdash; CCR trimix</div>
+            </div>
+            <button class="btn-cog" data-bs-toggle="offcanvas" data-bs-target="#savedPlansOffcanvas" aria-controls="savedPlansOffcanvas" title="Saved plans" aria-label="Saved plans"><i class="bi bi-bookmark"></i></button>
+            <button class="btn-cog" data-bs-toggle="offcanvas" data-bs-target="#settingsOffcanvas" aria-controls="settingsOffcanvas" title="Personal settings" aria-label="Personal settings">
+                <i class="bi bi-gear-fill"></i>
+            </button>
+            <button class="btn-hamburger" data-bs-toggle="offcanvas" data-bs-target="#navOffcanvas" aria-controls="navOffcanvas" aria-label="Navigation">
+                <i class="bi bi-list"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Nav offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="navOffcanvas" aria-labelledby="navOffcanvasLabel">
+        <div class="offcanvas-header" style="border-bottom:1px solid var(--border);">
+            <span class="offcanvas-title fw-bold" id="navOffcanvasLabel" style="color:var(--ocean);">GasBlender</span>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body px-3 pt-3">
+            <a href="index.html" class="nav-offcanvas-link">
+                <div class="nav-page-title">Gas Blender</div>
+                <div class="nav-page-desc">Fill sequence calculator for technical diving</div>
+            </a>
+            <a href="planner.html" class="nav-offcanvas-link active" aria-current="page">
+                <div class="nav-page-title">Dive Planner</div>
+                <div class="nav-page-desc">Bühlmann ZHL-16C decompression planner — CCR trimix</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Settings offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="settingsOffcanvas" aria-labelledby="settingsOffcanvasLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="settingsOffcanvasLabel">Personal Settings</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <p class="text-muted mb-3" style="font-size:0.82rem;">Settings are saved automatically and remembered between visits.</p>
+            <div class="card-section-title mb-2">Gradient Factors (BSAC)</div>
+            <div class="gf-row">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">GF Low</span>
+                    <input type="number" class="form-control" id="gf_low" min="1" max="100" value="60">
+                    <span class="input-group-text">%</span>
+                </div>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">GF High</span>
+                    <input type="number" class="form-control" id="gf_high" min="1" max="100" value="80">
+                    <span class="input-group-text">%</span>
+                </div>
+            </div>
+            <div class="accordion accordion-flush mt-3" id="settingsAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#presetsContent"
+                            aria-expanded="false" aria-controls="presetsContent">
+                            Quick presets
+                        </button>
+                    </h2>
+                    <div id="presetsContent" class="accordion-collapse collapse" data-bs-parent="#settingsAccordion">
+                        <div class="accordion-body pt-2 pb-0">
+                            <div class="d-flex align-items-center flex-wrap gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyGF(30,70)">Shearwater &middot; 30/70</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyGF(60,80)">BSAC Trimix &middot; 60/80</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="applyGF(85,95)">BSAC Air/Nitrox &middot; 85/95</button>
+                                <button class="info-btn"
+                                    data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="auto" data-bs-html="true"
+                                    data-bs-title="About these presets"
+                                    data-bs-content="GF values are personal &amp;mdash; these are published defaults, not prescriptions. Shearwater defaults vary by model and firmware.&lt;br&gt;&lt;br&gt;&lt;a href='https://www.shearwater.com/downloads/other-downloads/' target='_blank' rel='noopener noreferrer'&gt;Shearwater manuals&lt;/a&gt; &amp;middot; &lt;a href='https://www.bsac.com/safety/safe-diving-guide/equipment/' target='_blank' rel='noopener noreferrer'&gt;BSAC safe diving guide&lt;/a&gt;">ⓘ</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add / Edit Gas modal -->
+    <div class="modal fade" id="gasModal" tabindex="-1" aria-labelledby="gasModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title" id="gasModalLabel" style="font-size:0.9rem;font-weight:700;">Add Diluent Gas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div class="mb-2">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">O&#x2082; %</span>
+                            <input type="number" class="form-control" id="modal_o2" min="0" max="100" value="21" oninput="updateModalPreview()">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">He %</span>
+                            <input type="number" class="form-control" id="modal_he" min="0" max="100" value="0" oninput="updateModalPreview()">
+                        </div>
+                    </div>
+
+                    <div class="gas-bar">
+                        <div class="gas-bar-o2" id="modal_o2bar" style="width:21%"></div>
+                        <div class="gas-bar-he" id="modal_hebar"  style="width:0%"></div>
+                        <div class="gas-bar-n2" id="modal_n2bar"  style="width:79%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-baseline mt-1 mb-3" style="font-size:0.75rem;">
+                        <span id="modal_name" style="font-weight:800;color:var(--ocean);font-size:1rem;">Air</span>
+                        <span id="modal_limit" class="text-muted"></span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="field-label">Setpoint &mdash; <b id="modal_sp_val">1.3</b> bar</label>
+                        <input type="range" class="form-range" id="modal_sp" min="0.7" max="1.6" step="0.1" value="1.3" oninput="updateModalPreview()">
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="dl_upper" onchange="updateModalPreview()">
+                        <label class="form-check-label small text-muted" for="dl_upper">Upper density limit (6.3 g/L)</label>
+                    </div>
+
+                    <button type="button" class="btn btn-sm w-100"
+                        style="background:#eef2f8;color:var(--ocean);font-size:0.75rem;font-weight:600;border:1px solid var(--border);"
+                        onclick="applyBestMix()">
+                        <i class="bi bi-stars"></i> Best Mix for current depth
+                    </button>
+                    <div id="modal_bestmix_note" class="text-muted mt-1" style="font-size:0.65rem;text-align:center;"></div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-apply px-3" onclick="saveGas()">Save Gas</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row g-3 mb-4">
+
+            <!-- Diluent Gas Library -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="card-section-title mb-0">Diluent Gases</div>
+                            <button class="btn-add-gas" onclick="openAddGas()" title="Add diluent gas" aria-label="Add diluent gas">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div class="gas-library" id="gas_library"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dive Parameters -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="card-section-title">Dive Parameters</div>
+
+                        <div class="mb-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">Depth</span>
+                                <input type="number" class="form-control" id="depth_m" min="10" max="150" value="60">
+                                <span class="input-group-text">m</span>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">Bottom time</span>
+                                <input type="number" class="form-control" id="bottom_time" min="1" max="120" value="20">
+                                <span class="input-group-text">min</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calculate -->
+            <div class="col-md-4 d-flex flex-column">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="card-section-title">Algorithm</div>
+                            <p class="text-muted mb-1" style="font-size:0.78rem;">Bühlmann ZHL-16C &middot; CCR setpoint &middot; GF Low/High</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">Ascent: 9&thinsp;m/min &middot; 3&thinsp;m/min below 6&thinsp;m &middot; 3&thinsp;m stops</p>
+                        </div>
+                        <button class="btn btn-apply w-100 mt-3" onclick="calculate()">Calculate Decompression</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="error" class="alert alert-danger d-none rounded-3" role="alert"></div>
+
+        <div id="loading" class="text-center py-5 d-none">
+            <div class="spinner-border" role="status"></div>
+            <div class="text-muted mt-2">Planning decompression&hellip;</div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+
+    <!-- Saved Plans offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="savedPlansOffcanvas" aria-labelledby="savedPlansLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="savedPlansLabel">Saved Plans</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <button class="btn btn-sm btn-apply w-100 mb-3" onclick="saveCurrentPlan()">
+                <i class="bi bi-floppy2"></i> Save current plan
+            </button>
+            <div id="savedPlansList"></div>
+        </div>
+    </div>
+
+    <!-- Save Plan modal -->
+    <div class="modal fade" id="savePlanModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h5 class="modal-title" style="font-size:0.9rem;font-weight:700;">Save Plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <label class="field-label mb-1">Plan name</label>
+                    <input type="text" class="form-control form-control-sm" id="savePlanName" placeholder="e.g. Deep Trimix Saturday">
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-apply px-3" onclick="confirmSavePlan()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="app-footer mt-5">
+        <div class="container">
+            <p class="mb-1"><strong>Disclaimer</strong></p>
+            <p class="mb-0">This tool is provided for informational purposes only. Decompression planning is a complex, safety-critical task that must only be undertaken by trained technical divers using validated software and current dive tables. Always cross-reference any plan with a recognised dive planning tool and your training agency's guidance. The authors accept no responsibility or liability for errors in calculations or any outcomes arising from use of this tool. Incorrect decompression planning can result in serious injury or death.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="planner.js?v=23"></script>
+</body>
+</html>
