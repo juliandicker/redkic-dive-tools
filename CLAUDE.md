@@ -2,21 +2,31 @@
 
 ## Project overview
 
-Trimix gas blending calculator for technical diving. Python Azure Function API + static HTML frontend hosted on Azure Static Web Apps (Free tier).
+Two tools for technical diving. Python Azure Functions API + static HTML frontend hosted on Azure Static Web Apps (Free tier).
+
+- **Gas Blender** (`TrimixBlend/`) — fill-sequence calculator: He → O₂ → air top-up steps
+- **Dive Planner** (`DivePlanner/`) — Bühlmann ZHL-16C CCR decompression planner with GF Low/High, gas density analysis, tissue saturation tracking, OTU/CNS
 
 ## Structure
 
 ```
 GasBlender/
-├── TrimixBlend/__init__.py   # Azure HTTP trigger
-├── TrimixBlend/function.json # Binding config
-├── tests/                    # Unit tests (pytest)
-├── gas_blender.py            # Core logic — single source of truth
-├── web/                      # Static website assets (deployed to Azure Blob Storage, not Function App)
-│   ├── index.html
+├── TrimixBlend/__init__.py   # Azure HTTP trigger — gas blending
+├── TrimixBlend/function.json
+├── DivePlanner/__init__.py   # Azure HTTP trigger — decompression planning (CNS/OTU/TTS/density)
+├── DivePlanner/function.json
+├── planner/
+│   ├── buhlmann.py           # ZHL-16C: Schreiner equation, GF ceiling, tissue saturations
+│   ├── dive.py               # CCR dive planner: descent, deco grid, profile points
+│   └── gas.py                # CCRGas: pp_n2 / pp_he respecting setpoint
+├── tests/                    # Unit tests (pytest) — 174 tests total
+├── gas_blender.py            # Core blending logic — single source of truth
+├── web/
+│   ├── index.html            # Gas Blender UI
 │   ├── app.js
-│   ├── styles.css
-│   └── diver.jpg
+│   ├── planner.html          # Dive Planner UI (Chart.js, Bootstrap 5)
+│   ├── planner.js
+│   └── styles.css
 ├── host.json                 # Azure Functions runtime config
 ├── requirements.txt          # Pinned dependencies
 ├── .funcignore               # Excludes tests/, web/, README.md from deployment
@@ -56,11 +66,11 @@ python -m http.server 8080 --directory web   # frontend on :8080
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
-28 tests covering `Gas`, `BlendStep`, `TrimixBlend`, and `topup_blend`.
+174 tests: 28 covering `Gas`, `BlendStep`, `TrimixBlend`, `topup_blend`; the rest cover the Bühlmann model, CCR dive planner, and OVM cross-validation.
 
 ## Conventions
 
-- **Single source of truth**: all gas logic lives in `gas_blender.py`. `TrimixBlend/__init__.py` imports from it — never duplicate logic there.
+- **Single source of truth**: all gas blending logic lives in `gas_blender.py`; all decompression logic lives in `planner/`. Neither function (`TrimixBlend/`, `DivePlanner/`) duplicates logic — they only parse, validate, and call.
 - **Snake_case** for functions (`topup_blend`), PascalCase for classes (`Gas`, `TrimixBlend`, `BlendStep`).
 - **No comments** unless the why is non-obvious.
 - **Pinned dependencies** in `requirements.txt` (currently `azure-functions==1.24.0`).
@@ -99,6 +109,7 @@ az deployment sub what-if --location northeurope \              # dry run
 | Static Web App | `gasblender-<token>` | Free tier, global distribution, managed TLS |
 
 - Frontend: `https://gasblender.redkic.co.uk/` (SWA custom domain)
-- API endpoint: `https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend`
+- Gas Blender API: `https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend`
+- Dive Planner API: `https://gasblender-tcif7s.azurewebsites.net/api/DivePlanner`
 - Function auth: anonymous (no API key required)
 - Extension bundle: `[4.*, 5.0.0)` (host.json)
