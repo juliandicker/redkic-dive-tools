@@ -720,7 +720,7 @@ function buildResult(data) {
     }
 
     if (data.bailout) {
-        frag.appendChild(buildBailoutScheduleCard(data.bailout));
+        frag.appendChild(buildBailoutScheduleCard(data));
     }
 
     return frag;
@@ -738,7 +738,8 @@ function bailoutGasAtDepth(depth) {
     return sorted[sorted.length - 1];
 }
 
-function buildBailoutScheduleCard(bailout) {
+function buildBailoutScheduleCard(data) {
+    var bailout   = data.bailout;
     var depthM    = parseFloat(document.getElementById('depth_m').value) || 0;
     var btMin     = parseFloat(document.getElementById('bottom_time').value) || 0;
     var descRate  = parseFloat(document.getElementById('desc_rate').value) || 20;
@@ -875,7 +876,38 @@ function buildBailoutScheduleCard(bailout) {
                 '<div style="font-size:1.05rem;font-weight:800;color:' + otuColor + ';">' + bailout.otu + '</div></div>' +
         '</div>';
     metCard.appendChild(metBody);
-    section.appendChild(metCard);
+
+    var hasBailoutChart = bailout.profile_points && bailout.profile_points.length > 2;
+    if (hasBailoutChart) {
+        // Combine CCR bottom phase (t ≤ btMin) with OC ascent (offset by btMin)
+        var ccrBottomPts = (data.profile_points || []).filter(function (p) { return p.t <= btMin + 0.05; });
+        var ocPts = bailout.profile_points.map(function (p) {
+            return { t: p.t + btMin, d: p.d, c: p.c, sats: p.sats };
+        });
+        var bailoutChartData = {
+            profile_points: ccrBottomPts.concat(ocPts),
+            tissue_saturations: bailout.tissue_saturations,
+        };
+
+        var row = document.createElement('div');
+        row.className = 'row g-3 align-items-start';
+
+        var tableCol = document.createElement('div');
+        tableCol.className = 'col-12 col-lg-5';
+        tableCol.appendChild(card);
+        tableCol.appendChild(metCard);
+        row.appendChild(tableCol);
+
+        var chartCol = document.createElement('div');
+        chartCol.className = 'col-12 col-lg-7';
+        chartCol.appendChild(buildBailoutChart(bailoutChartData));
+        row.appendChild(chartCol);
+
+        section.appendChild(row);
+    } else {
+        section.appendChild(card);
+        section.appendChild(metCard);
+    }
 
     return section;
 }
@@ -1138,9 +1170,245 @@ document.addEventListener('fullscreenchange', function () {
         var btn = document.querySelector('.chart-fs-btn');
         if (btn) btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
     }
-    if (_profileChart) _profileChart.resize();
-    if (_tissueChart)  _tissueChart.resize();
+    if (_profileChart)        _profileChart.resize();
+    if (_tissueChart)         _tissueChart.resize();
+    if (_bailoutProfileChart) _bailoutProfileChart.resize();
+    if (_bailoutTissueChart)  _bailoutTissueChart.resize();
 });
+
+// ── Bailout profile chart ─────────────────────────────────────────────────────
+
+var _bailoutProfileChart = null;
+var _bailoutTissueChart  = null;
+
+function buildBailoutChart(data) {
+    var wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+
+    var header = document.createElement('div');
+    header.className = 'chart-header';
+    var title = document.createElement('span');
+    title.className = 'result-heading';
+    title.textContent = 'Bailout Profile';
+    var fsBtn = document.createElement('button');
+    fsBtn.className = 'chart-fs-btn';
+    fsBtn.title = 'Full screen';
+    fsBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    fsBtn.onclick = function () { toggleChartFullscreen(wrap, fsBtn); };
+    header.appendChild(title);
+    header.appendChild(fsBtn);
+    wrap.appendChild(header);
+
+    var profileBox = document.createElement('div');
+    profileBox.className = 'profile-canvas';
+    profileBox.style.height = '260px';
+    profileBox.style.position = 'relative';
+    var profileCanvas = document.createElement('canvas');
+    profileBox.appendChild(profileCanvas);
+    wrap.appendChild(profileBox);
+
+    var tissueToggle = document.createElement('button');
+    tissueToggle.className = 'btn btn-sm btn-outline-secondary w-100 tissue-toggle';
+    tissueToggle.textContent = 'Hide Tissue Saturation';
+    var tissuePanel = document.createElement('div');
+    tissuePanel.style.display = 'block';
+    var tissueBox = document.createElement('div');
+    tissueBox.style.height = '200px';
+    tissueBox.style.position = 'relative';
+    var tissueCanvas = document.createElement('canvas');
+    tissueBox.appendChild(tissueCanvas);
+    tissuePanel.appendChild(tissueBox);
+    tissueToggle.onclick = function () {
+        var open = tissuePanel.style.display !== 'none';
+        tissuePanel.style.display = open ? 'none' : 'block';
+        tissueToggle.textContent = open ? 'Show Tissue Saturation' : 'Hide Tissue Saturation';
+        if (!open) _renderBailoutTissueChart(tissueCanvas, data);
+        if (open && _bailoutTissueChart) { _bailoutTissueChart.destroy(); _bailoutTissueChart = null; }
+    };
+    wrap.appendChild(tissueToggle);
+    wrap.appendChild(tissuePanel);
+
+    setTimeout(function () {
+        _renderBailoutProfileChart(profileCanvas, data);
+        _renderBailoutTissueChart(tissueCanvas, data);
+
+        function hoverAtX(offsetX) {
+            if (!_bailoutProfileChart || !_bailoutTissueChart) return;
+            var xVal = _bailoutProfileChart.scales.x.getValueForPixel(offsetX);
+            var pts = data.profile_points;
+            if (!pts || !pts.length) return;
+            var nearest = pts.reduce(function (prev, curr) {
+                return Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev;
+            });
+            if (nearest && nearest.sats) _updateBailoutTissueData(nearest.sats, nearest.t);
+        }
+        function resetTissue() {
+            if (!_bailoutTissueChart) return;
+            _updateBailoutTissueData(data.tissue_saturations, null);
+        }
+
+        profileCanvas.addEventListener('mousemove', function (e) { hoverAtX(e.offsetX); });
+        profileCanvas.addEventListener('mouseleave', resetTissue);
+        profileCanvas.addEventListener('touchmove', function (e) {
+            var touch = e.touches[0];
+            var rect = profileCanvas.getBoundingClientRect();
+            hoverAtX(touch.clientX - rect.left);
+        }, { passive: true });
+        profileCanvas.addEventListener('touchend', resetTissue);
+    }, 0);
+
+    return wrap;
+}
+
+function _renderBailoutProfileChart(canvas, data) {
+    if (_bailoutProfileChart) { _bailoutProfileChart.destroy(); _bailoutProfileChart = null; }
+
+    var pts = data.profile_points;
+    var maxDepth = Math.max.apply(null, pts.map(function (p) { return p.d; }));
+
+    _bailoutProfileChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Depth',
+                    data: pts.map(function (p) { return { x: p.t, y: p.d }; }),
+                    borderColor: 'rgba(0,100,160,0.85)',
+                    backgroundColor: 'rgba(0,119,182,0.10)',
+                    fill: true,
+                    tension: 0,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    order: 2,
+                },
+                {
+                    label: 'Ceiling',
+                    data: pts.map(function (p) { return { x: p.t, y: p.c }; }),
+                    borderColor: 'rgba(220,80,40,0.8)',
+                    borderDash: [6, 4],
+                    backgroundColor: 'transparent',
+                    fill: false,
+                    tension: 0,
+                    pointRadius: 0,
+                    borderWidth: 1.5,
+                    order: 1,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: { display: true, text: 'Time (min)', font: { size: 10 } },
+                    ticks: { font: { size: 10 } },
+                },
+                y: {
+                    reverse: true,
+                    min: 0,
+                    suggestedMax: Math.ceil(maxDepth * 1.08 / 5) * 5,
+                    title: { display: true, text: 'Depth (m)', font: { size: 10 } },
+                    ticks: { font: { size: 10 } },
+                },
+            },
+            plugins: {
+                legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
+                tooltip: {
+                    callbacks: {
+                        title: function (items) { return Math.round(items[0].parsed.x) + ' min'; },
+                        label: function (item) { return item.dataset.label + ': ' + item.parsed.y + ' m'; },
+                    },
+                },
+            },
+        },
+    });
+}
+
+function _renderBailoutTissueChart(canvas, data) {
+    if (_bailoutTissueChart) { _bailoutTissueChart.destroy(); _bailoutTissueChart = null; }
+
+    var gfHighPct = parseFloat(document.getElementById('bailout_gf_high').value) || 80;
+    var sats = data.tissue_saturations.map(function (r) { return Math.round(r * 100); });
+    var colors = sats.map(function (s) {
+        if (s > 100)       return 'rgba(220,53,69,0.75)';
+        if (s > gfHighPct) return 'rgba(255,140,0,0.75)';
+        return 'rgba(32,150,130,0.75)';
+    });
+
+    _bailoutTissueChart = new Chart(canvas, {
+        data: {
+            labels: TISSUE_LABELS,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Saturation',
+                    data: sats,
+                    backgroundColor: colors,
+                    borderRadius: 3,
+                    order: 2,
+                },
+                {
+                    type: 'line',
+                    label: 'GF High (' + gfHighPct + '%)',
+                    data: Array(16).fill(gfHighPct),
+                    borderColor: 'rgba(255,140,0,0.9)',
+                    borderDash: [5, 4],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    order: 1,
+                },
+                {
+                    type: 'line',
+                    label: 'M-value (100%)',
+                    data: Array(16).fill(100),
+                    borderColor: 'rgba(220,53,69,0.85)',
+                    borderDash: [3, 3],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                    order: 0,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            scales: {
+                x: { title: { display: true, text: 'Compartment half-time', font: { size: 10 } }, ticks: { font: { size: 10 } } },
+                y: {
+                    min: 0,
+                    max: Math.max(110, Math.max.apply(null, sats) + 5),
+                    title: { display: true, text: '% of GF-adjusted M-value', font: { size: 10 } },
+                    ticks: { font: { size: 10 } },
+                },
+            },
+            plugins: {
+                legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 8 } },
+                title: { display: true, text: 'Tissue loading at OC surfacing', font: { size: 10 }, color: '#555', padding: { bottom: 2 } },
+            },
+        },
+    });
+}
+
+function _updateBailoutTissueData(sats, timeMin) {
+    if (!_bailoutTissueChart) return;
+    var gfHighPct = parseFloat(document.getElementById('bailout_gf_high').value) || 80;
+    var satsPct = sats.map(function (r) { return Math.round(r * 100); });
+    _bailoutTissueChart.data.datasets[0].data = satsPct;
+    _bailoutTissueChart.data.datasets[0].backgroundColor = satsPct.map(function (s) {
+        if (s > 100)       return 'rgba(220,53,69,0.75)';
+        if (s > gfHighPct) return 'rgba(255,140,0,0.75)';
+        return 'rgba(32,150,130,0.75)';
+    });
+    var label = timeMin !== null ? 'at ' + parseFloat(timeMin).toFixed(1) + ' min' : 'at OC surfacing';
+    _bailoutTissueChart.options.plugins.title.text = 'Tissue loading ' + label;
+    _bailoutTissueChart.update('none');
+}
 
 function buildMetricsCard(data) {
     var cnsColor = data.cns_pct > 80 ? '#dc3545' : data.cns_pct > 40 ? '#e07000' : 'var(--ocean)';
