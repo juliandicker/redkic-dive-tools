@@ -75,6 +75,7 @@ function gasNameCompact(o2, he) {
 var gasLibrary = [];
 var nextGasId  = 1;
 var editingGasId = null;
+var _gasModalMode = 'diluent';  // 'diluent' | 'bailout'
 
 var DEFAULT_GASES = [
     { o2: 21, he: 0,  setpoint: 1.3 },
@@ -173,8 +174,17 @@ function selectGas(id) {
 
 var _gasModalInstance = null;
 
+function setGasModalMode(mode) {
+    _gasModalMode = mode;
+    var isDiluent = mode === 'diluent';
+    document.getElementById('modal_diluent_fields').classList.toggle('d-none', !isDiluent);
+    document.getElementById('modal_bailout_fields').classList.toggle('d-none', isDiluent);
+}
+
 function openAddGas() {
     editingGasId = null;
+    editingBailoutId = null;
+    setGasModalMode('diluent');
     document.getElementById('gasModalLabel').textContent = 'Add Diluent Gas';
     document.getElementById('modal_o2').value = 21;
     document.getElementById('modal_he').value = 0;
@@ -189,6 +199,8 @@ function editGas(id) {
     var gas = gasLibrary.find(function (g) { return g.id === id; });
     if (!gas) return;
     editingGasId = id;
+    editingBailoutId = null;
+    setGasModalMode('diluent');
     document.getElementById('gasModalLabel').textContent = 'Edit Diluent Gas';
     document.getElementById('modal_o2').value = gas.o2;
     document.getElementById('modal_he').value = gas.he;
@@ -199,7 +211,43 @@ function editGas(id) {
     _gasModalInstance.show();
 }
 
+function openAddBailoutGas() {
+    editingBailoutId = null;
+    editingGasId = null;
+    setGasModalMode('bailout');
+    document.getElementById('gasModalLabel').textContent = 'Add Bailout Gas';
+    document.getElementById('modal_o2').value = 21;
+    document.getElementById('modal_he').value = 0;
+    document.getElementById('modal_mod').value = bailoutAutoMod(21);
+    document.getElementById('modal_cyl_l').value = 7;
+    document.getElementById('modal_cyl_bar').value = 200;
+    updateModalPreview();
+    _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
+    _gasModalInstance.show();
+}
+
+function editBailoutGas(id) {
+    var gas = bailoutLibrary.find(function (g) { return g.id === id; });
+    if (!gas) return;
+    editingBailoutId = id;
+    editingGasId = null;
+    setGasModalMode('bailout');
+    document.getElementById('gasModalLabel').textContent = 'Edit Bailout Gas';
+    document.getElementById('modal_o2').value = gas.o2;
+    document.getElementById('modal_he').value = gas.he;
+    document.getElementById('modal_mod').value = gas.mod_m;
+    document.getElementById('modal_cyl_l').value = gas.cyl_l || 7;
+    document.getElementById('modal_cyl_bar').value = gas.cyl_bar || 200;
+    updateModalPreview();
+    _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
+    _gasModalInstance.show();
+}
+
 function saveGas() {
+    if (_gasModalMode === 'bailout') {
+        _saveBailoutGas();
+        return;
+    }
     var o2 = Math.round(Math.max(0, Math.min(100, parseFloat(document.getElementById('modal_o2').value) || 0)));
     var he = Math.round(Math.max(0, Math.min(100, parseFloat(document.getElementById('modal_he').value) || 0)));
     var sp = parseFloat(document.getElementById('modal_sp').value) || 1.3;
@@ -221,6 +269,33 @@ function saveGas() {
 
     saveGasLibrary();
     renderGasLibrary();
+    if (_gasModalInstance) _gasModalInstance.hide();
+}
+
+function _saveBailoutGas() {
+    var o2  = Math.round(Math.max(0, Math.min(100, parseFloat(document.getElementById('modal_o2').value) || 0)));
+    var he  = Math.round(Math.max(0, Math.min(100, parseFloat(document.getElementById('modal_he').value) || 0)));
+    var mod = Math.max(3, parseFloat(document.getElementById('modal_mod').value) || 6);
+    var cylL   = parseFloat(document.getElementById('modal_cyl_l').value) || 7;
+    var cylBar = parseFloat(document.getElementById('modal_cyl_bar').value) || 200;
+
+    if (o2 <= 0 || o2 + he > 100) {
+        document.getElementById('modal_o2').classList.add('is-invalid');
+        document.getElementById('modal_he').classList.add('is-invalid');
+        return;
+    }
+    document.getElementById('modal_o2').classList.remove('is-invalid');
+    document.getElementById('modal_he').classList.remove('is-invalid');
+
+    if (editingBailoutId !== null) {
+        var gas = bailoutLibrary.find(function (g) { return g.id === editingBailoutId; });
+        if (gas) { gas.o2 = o2; gas.he = he; gas.mod_m = mod; gas.cyl_l = cylL; gas.cyl_bar = cylBar; }
+    } else {
+        bailoutLibrary.push({ id: nextBailoutId++, o2: o2, he: he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar, active: true });
+    }
+
+    saveBailoutLibrary();
+    renderBailoutLibrary();
     if (_gasModalInstance) _gasModalInstance.hide();
 }
 
@@ -265,6 +340,123 @@ function updateModalPreview() {
     var limRec   = densityLimitDepth(o2, he, 5.2);
     var limUpper = densityLimitDepth(o2, he, 6.3);
     document.getElementById('modal_limit').textContent = 'rec ~' + limRec + ' m · upper ~' + limUpper + ' m';
+
+    if (_gasModalMode === 'bailout') {
+        var autoMod = bailoutAutoMod(o2);
+        document.getElementById('modal_mod_auto').textContent = autoMod + ' m';
+    }
+}
+
+// ── Bailout gas library ───────────────────────────────────────────────────────
+
+var bailoutLibrary = [];
+var nextBailoutId  = 1;
+var editingBailoutId = null;
+
+var DEFAULT_BAILOUT_GASES = [
+    { o2: 100, he: 0,  mod_m: 6,  cyl_l: 3,  cyl_bar: 200 },
+    { o2: 80,  he: 0,  mod_m: 6,  cyl_l: 3,  cyl_bar: 200 },
+    { o2: 60,  he: 0,  mod_m: 12, cyl_l: 3,  cyl_bar: 200 },
+    { o2: 50,  he: 0,  mod_m: 15, cyl_l: 3,  cyl_bar: 200 },
+    { o2: 21,  he: 0,  mod_m: 54, cyl_l: 7,  cyl_bar: 200 },
+    { o2: 21,  he: 25, mod_m: 54, cyl_l: 7,  cyl_bar: 200 },
+    { o2: 20,  he: 55, mod_m: 57, cyl_l: 7,  cyl_bar: 200 },
+    { o2: 16,  he: 70, mod_m: 75, cyl_l: 7,  cyl_bar: 200 },
+    { o2: 13,  he: 75, mod_m: 96, cyl_l: 11, cyl_bar: 200 },
+];
+
+function bailoutAutoMod(o2) {
+    if (o2 <= 0) return 150;
+    var depth = (1.4 / (o2 / 100) - 1.013) * 10;
+    return Math.max(3, Math.floor(depth / 3) * 3);
+}
+
+function saveBailoutLibrary() {
+    var data = {
+        gases: bailoutLibrary.map(function (g) {
+            return { id: g.id, o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l, cyl_bar: g.cyl_bar, active: !!g.active };
+        }),
+        nextId: nextBailoutId,
+    };
+    setCookie('planner_bailout_gases', JSON.stringify(data));
+}
+
+function loadBailoutLibrary() {
+    var raw = getCookie('planner_bailout_gases');
+    if (raw) {
+        try {
+            var data = JSON.parse(raw);
+            bailoutLibrary = data.gases || [];
+            nextBailoutId  = data.nextId || (bailoutLibrary.length + 1);
+            return;
+        } catch (e) { /* fall through to defaults */ }
+    }
+    nextBailoutId = 1;
+    bailoutLibrary = DEFAULT_BAILOUT_GASES.map(function (g) {
+        return { id: nextBailoutId++, o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l, cyl_bar: g.cyl_bar, active: true };
+    });
+    saveBailoutLibrary();
+}
+
+function activeBailoutGases() {
+    return bailoutLibrary.filter(function (g) { return g.active; });
+}
+
+function renderBailoutLibrary() {
+    var container = document.getElementById('bailout_library');
+    container.innerHTML = '';
+    bailoutLibrary.forEach(function (gas) {
+        container.appendChild(buildBailoutCard(gas));
+    });
+}
+
+function buildBailoutCard(gas) {
+    var o2 = gas.o2, he = gas.he;
+    var n2 = Math.max(0, 100 - o2 - he);
+    var name = gasName(o2, he);
+
+    var card = document.createElement('div');
+    card.className = 'gas-card' + (gas.active ? ' gas-card-active' : '');
+
+    card.innerHTML =
+        '<div class="gas-card-top">' +
+            '<span class="gas-card-name">' + name + '</span>' +
+            '<span>' +
+                '<button class="btn-gas-action" onclick="editBailoutGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn-gas-action" onclick="confirmDeleteBailoutGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
+            '</span>' +
+        '</div>' +
+        '<div class="gas-card-meta">O₂ ' + o2 + '% · He ' + he + '% · N₂ ' + n2 + '% · MOD ' + gas.mod_m + ' m</div>' +
+        '<div class="gas-bar" style="margin-top:0.15rem;">' +
+            '<div class="gas-bar-o2" style="width:' + o2 + '%"></div>' +
+            '<div class="gas-bar-he" style="width:' + he + '%"></div>' +
+            '<div class="gas-bar-n2" style="width:' + n2 + '%"></div>' +
+        '</div>' +
+        '<div class="gas-card-footer">' +
+            '<span class="gas-depth-badge"><i class="bi bi-arrow-up-circle"></i> MOD ' + gas.mod_m + ' m</span>' +
+            '<button class="btn-gas-toggle' + (gas.active ? ' active' : '') + '" onclick="toggleBailoutGas(' + gas.id + ')">' +
+                '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"></i>' +
+                (gas.active ? ' Included' : ' Include') +
+            '</button>' +
+        '</div>';
+
+    return card;
+}
+
+function toggleBailoutGas(id) {
+    var gas = bailoutLibrary.find(function (g) { return g.id === id; });
+    if (gas) gas.active = !gas.active;
+    saveBailoutLibrary();
+    renderBailoutLibrary();
+}
+
+function confirmDeleteBailoutGas(id) {
+    var gas = bailoutLibrary.find(function (g) { return g.id === id; });
+    if (!gas) return;
+    if (!confirm('Remove ' + gasName(gas.o2, gas.he) + '?')) return;
+    bailoutLibrary = bailoutLibrary.filter(function (g) { return g.id !== id; });
+    saveBailoutLibrary();
+    renderBailoutLibrary();
 }
 
 // ── Settings helpers ──────────────────────────────────────────────────────────
@@ -318,6 +510,10 @@ function calculate() {
     var lastStopM      = parseInt(document.getElementById('last_stop_m').value) || 3;
     var cnsWarnPct     = parseFloat(document.getElementById('cns_warn_pct').value) || 80;
 
+    var activeBailout  = activeBailoutGases();
+    var bailoutGfLow   = parseFloat(document.getElementById('bailout_gf_low').value) || 50;
+    var bailoutGfHigh  = parseFloat(document.getElementById('bailout_gf_high').value) || 80;
+
     var payload = JSON.stringify({
         diluent_o2:           gas.o2,
         diluent_he:           gas.he,
@@ -331,6 +527,9 @@ function calculate() {
         asc_rate_shallow_mpm: ascRateShallow,
         last_stop_m:          lastStopM,
         cns_warn_pct:         cnsWarnPct,
+        bailout_gases:        activeBailout.map(function (g) { return { o2: g.o2, he: g.he, mod_m: g.mod_m }; }),
+        bailout_gf_low:       bailoutGfLow,
+        bailout_gf_high:      bailoutGfHigh,
     });
 
     var h   = window.location.hostname;
@@ -501,7 +700,137 @@ function buildResult(data) {
         frag.appendChild(scheduleDiv);
     }
 
+    if (data.bailout) {
+        frag.appendChild(buildBailoutScheduleCard(data.bailout));
+    }
+
     return frag;
+}
+
+// ── Bailout schedule rendering ────────────────────────────────────────────────
+
+function bailoutGasAtDepth(depth) {
+    var active = activeBailoutGases();
+    if (active.length === 0) return null;
+    var sorted = active.slice().sort(function (a, b) { return a.mod_m - b.mod_m; });
+    for (var i = 0; i < sorted.length; i++) {
+        if (depth <= sorted[i].mod_m) return sorted[i];
+    }
+    return sorted[sorted.length - 1];
+}
+
+function buildBailoutScheduleCard(bailout) {
+    var depthM = parseFloat(document.getElementById('depth_m').value) || 0;
+
+    var section = document.createElement('div');
+    section.className = 'mb-4 mt-4';
+
+    var heading = document.createElement('div');
+    heading.className = 'mb-1 d-flex align-items-center gap-2';
+    heading.innerHTML =
+        '<span class="result-heading">Bailout Decompression Schedule</span>' +
+        '<span style="background:rgba(220,53,69,0.12);color:#dc3545;font-size:0.63rem;font-weight:700;border:1px solid rgba(220,53,69,0.3);padding:0.2rem 0.45rem;border-radius:4px;">OC</span>';
+    section.appendChild(heading);
+
+    if (bailout.gas_switches && bailout.gas_switches.length > 0) {
+        var switchNote = document.createElement('div');
+        switchNote.className = 'text-muted mb-2';
+        switchNote.style.fontSize = '0.73rem';
+        var switchText = 'Gas switches: ';
+        bailout.gas_switches.forEach(function (sw, i) {
+            if (i > 0) switchText += ' · ';
+            switchText += sw.label + ' at ' + sw.depth_m + ' m';
+        });
+        switchNote.textContent = switchText;
+        section.appendChild(switchNote);
+    }
+
+    var card = document.createElement('div');
+    card.className = 'card';
+    var cardBody = document.createElement('div');
+    cardBody.className = 'card-body p-0';
+
+    var tableWrap = document.createElement('div');
+    tableWrap.className = 'table-responsive';
+    var table = document.createElement('table');
+    table.className = 'table table-sm mb-0 deco-table';
+
+    var thead = document.createElement('thead');
+    thead.innerHTML =
+        '<tr>' +
+        '<th class="ps-2" style="width:2rem"></th>' +
+        '<th>Depth</th><th>T</th><th>RT</th>' +
+        '<th>ppO₂</th><th>Gas</th>' +
+        '</tr>';
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+
+    var bailGas = bailoutGasAtDepth(depthM);
+    var bailGasName = bailGas ? gasNameCompact(bailGas.o2, bailGas.he) : '—';
+    var bailPpO2 = bailGas ? (bailGas.o2 / 100 * (depthM / 10 + 1.013)).toFixed(2) : '—';
+    var trBail = document.createElement('tr');
+    trBail.innerHTML =
+        '<td class="ps-2"><i class="bi bi-exclamation-circle" style="color:#dc3545"></i></td>' +
+        '<td>' + depthM + 'm (bail)</td>' +
+        '<td>—</td>' +
+        '<td>0</td>' +
+        '<td>' + bailPpO2 + '</td>' +
+        '<td>' + bailGasName + '</td>';
+    tbody.appendChild(trBail);
+
+    if (bailout.stops.length === 0) {
+        var trAsc = document.createElement('tr');
+        trAsc.innerHTML =
+            '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#198754"></i></td>' +
+            '<td>' + depthM + '→0m</td>' +
+            '<td>' + Math.round(bailout.total_time_min) + '</td>' +
+            '<td>' + Math.round(bailout.total_time_min) + '</td>' +
+            '<td>—</td>' +
+            '<td>—</td>';
+        tbody.appendChild(trAsc);
+    } else {
+        bailout.stops.forEach(function (stop) {
+            var g = bailoutGasAtDepth(stop.depth_m);
+            var gName = g ? gasNameCompact(g.o2, g.he) : '—';
+            var ppO2  = g ? (g.o2 / 100 * (stop.depth_m / 10 + 1.013)).toFixed(2) : '—';
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#e07000"></i></td>' +
+                '<td>' + stop.depth_m + 'm</td>' +
+                '<td>' + stop.time_min + '</td>' +
+                '<td>' + Math.round(stop.runtime_min) + '</td>' +
+                '<td>' + ppO2 + '</td>' +
+                '<td>' + gName + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    cardBody.appendChild(tableWrap);
+    card.appendChild(cardBody);
+    section.appendChild(card);
+
+    var cnsColor = bailout.cns_pct > 80 ? '#dc3545' : bailout.cns_pct > 40 ? '#e07000' : 'var(--ocean)';
+    var otuColor = bailout.otu > 250 ? '#dc3545' : bailout.otu > 150 ? '#e07000' : 'var(--navy)';
+    var metCard = document.createElement('div');
+    metCard.className = 'card mt-3';
+    var metBody = document.createElement('div');
+    metBody.className = 'card-body py-2 px-3';
+    metBody.innerHTML =
+        '<div class="d-flex justify-content-around text-center">' +
+            '<div><div class="field-label mb-1">TTS (OC)</div>' +
+                '<div style="font-size:1.05rem;font-weight:800;color:var(--ocean);">' + bailout.tts_min + ' min</div></div>' +
+            '<div><div class="field-label mb-1">CNS</div>' +
+                '<div style="font-size:1.05rem;font-weight:800;color:' + cnsColor + ';">' + bailout.cns_pct + '%</div></div>' +
+            '<div><div class="field-label mb-1">OTU</div>' +
+                '<div style="font-size:1.05rem;font-weight:800;color:' + otuColor + ';">' + bailout.otu + '</div></div>' +
+        '</div>';
+    metCard.appendChild(metBody);
+    section.appendChild(metCard);
+
+    return section;
 }
 
 // ── Dive profile chart ────────────────────────────────────────────────────────
@@ -966,24 +1295,31 @@ document.addEventListener('DOMContentLoaded', function () {
     renderSavedPlans();
     loadGasLibrary();
     renderGasLibrary();
+    loadBailoutLibrary();
+    renderBailoutLibrary();
 
     var savedLow  = getCookie('gf_low');
     var savedHigh = getCookie('gf_high');
     if (savedLow)  document.getElementById('gf_low').value  = savedLow;
     if (savedHigh) document.getElementById('gf_high').value = savedHigh;
 
-    var savedDescRate      = getCookie('desc_rate');
-    var savedAscRateDeep   = getCookie('asc_rate_deep');
-    var savedAscRateShallow = getCookie('asc_rate_shallow');
-    var savedLastStopM     = getCookie('last_stop_m');
-    if (savedDescRate)       document.getElementById('desc_rate').value       = savedDescRate;
-    if (savedAscRateDeep)    document.getElementById('asc_rate_deep').value   = savedAscRateDeep;
-    if (savedAscRateShallow) document.getElementById('asc_rate_shallow').value = savedAscRateShallow;
-    if (savedLastStopM)      document.getElementById('last_stop_m').value     = savedLastStopM;
-    var savedCnsWarnPct    = getCookie('cns_warn_pct');
-    if (savedCnsWarnPct)   document.getElementById('cns_warn_pct').value    = savedCnsWarnPct;
+    var savedBailoutGfLow  = getCookie('bailout_gf_low');
+    var savedBailoutGfHigh = getCookie('bailout_gf_high');
+    if (savedBailoutGfLow)  document.getElementById('bailout_gf_low').value  = savedBailoutGfLow;
+    if (savedBailoutGfHigh) document.getElementById('bailout_gf_high').value = savedBailoutGfHigh;
 
-    ['gf_low', 'gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct'].forEach(function (id) {
+    var savedDescRate       = getCookie('desc_rate');
+    var savedAscRateDeep    = getCookie('asc_rate_deep');
+    var savedAscRateShallow = getCookie('asc_rate_shallow');
+    var savedLastStopM      = getCookie('last_stop_m');
+    if (savedDescRate)       document.getElementById('desc_rate').value        = savedDescRate;
+    if (savedAscRateDeep)    document.getElementById('asc_rate_deep').value    = savedAscRateDeep;
+    if (savedAscRateShallow) document.getElementById('asc_rate_shallow').value = savedAscRateShallow;
+    if (savedLastStopM)      document.getElementById('last_stop_m').value      = savedLastStopM;
+    var savedCnsWarnPct = getCookie('cns_warn_pct');
+    if (savedCnsWarnPct) document.getElementById('cns_warn_pct').value = savedCnsWarnPct;
+
+    ['gf_low', 'gf_high', 'bailout_gf_low', 'bailout_gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct'].forEach(function (id) {
         document.getElementById(id).addEventListener('change', function () {
             setCookie(id, this.value);
         });

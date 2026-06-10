@@ -143,6 +143,20 @@
                     data-bs-title="About these presets"
                     data-bs-content="GF values are personal &amp;mdash; these are published defaults, not prescriptions. Shearwater defaults vary by model and firmware.&lt;br&gt;&lt;br&gt;&lt;a href='https://www.shearwater.com/downloads/other-downloads/' target='_blank' rel='noopener noreferrer'&gt;Shearwater manuals&lt;/a&gt; &amp;middot; &lt;a href='https://www.bsac.com/safety/safe-diving-guide/equipment/' target='_blank' rel='noopener noreferrer'&gt;BSAC safe diving guide&lt;/a&gt;">ⓘ</button>
             </div>
+            <div class="card-section-title mb-2 mt-3">Bailout Gradient Factors</div>
+            <div class="gf-row">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">GF Low</span>
+                    <input type="number" class="form-control" id="bailout_gf_low" min="1" max="100" value="50">
+                    <span class="input-group-text">%</span>
+                </div>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">GF High</span>
+                    <input type="number" class="form-control" id="bailout_gf_high" min="1" max="100" value="80">
+                    <span class="input-group-text">%</span>
+                </div>
+            </div>
+            <p class="text-muted mt-1 mb-0" style="font-size:0.72rem;">Applied to the OC bailout plan.</p>
             <div class="card-section-title mb-2 mt-3">Ascent / Descent Rates</div>
             <div class="mb-2">
                 <div class="input-group input-group-sm">
@@ -216,21 +230,48 @@
                         <span id="modal_limit" class="text-muted"></span>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="field-label">Setpoint &mdash; <b id="modal_sp_val">1.3</b> bar</label>
-                        <input type="range" class="form-range" id="modal_sp" min="0.7" max="1.6" step="0.1" value="1.3" oninput="updateModalPreview()">
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="dl_upper" onchange="updateModalPreview()">
-                        <label class="form-check-label small text-muted" for="dl_upper">Upper density limit (6.3 g/L)</label>
+                    <!-- Diluent-only fields -->
+                    <div id="modal_diluent_fields">
+                        <div class="mb-2">
+                            <label class="field-label">Setpoint &mdash; <b id="modal_sp_val">1.3</b> bar</label>
+                            <input type="range" class="form-range" id="modal_sp" min="0.7" max="1.6" step="0.1" value="1.3" oninput="updateModalPreview()">
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="dl_upper" onchange="updateModalPreview()">
+                            <label class="form-check-label small text-muted" for="dl_upper">Upper density limit (6.3 g/L)</label>
+                        </div>
+                        <button type="button" class="btn btn-sm w-100"
+                            style="background:#eef2f8;color:var(--ocean);font-size:0.75rem;font-weight:600;border:1px solid var(--border);"
+                            onclick="applyBestMix()">
+                            <i class="bi bi-stars"></i> Best Mix for current depth
+                        </button>
+                        <div id="modal_bestmix_note" class="text-muted mt-1" style="font-size:0.65rem;text-align:center;"></div>
                     </div>
 
-                    <button type="button" class="btn btn-sm w-100"
-                        style="background:#eef2f8;color:var(--ocean);font-size:0.75rem;font-weight:600;border:1px solid var(--border);"
-                        onclick="applyBestMix()">
-                        <i class="bi bi-stars"></i> Best Mix for current depth
-                    </button>
-                    <div id="modal_bestmix_note" class="text-muted mt-1" style="font-size:0.65rem;text-align:center;"></div>
+                    <!-- Bailout-only fields -->
+                    <div id="modal_bailout_fields" class="d-none">
+                        <div class="mb-2">
+                            <label class="field-label">MOD <span class="text-muted" style="font-weight:400;font-size:0.65rem;">(auto at 1.4 bar ppO₂: <span id="modal_mod_auto">—</span>)</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="modal_mod" min="3" max="200" step="3" value="6">
+                                <span class="input-group-text">m</span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">Cylinder</span>
+                                <input type="number" class="form-control" id="modal_cyl_l" min="1" max="30" step="0.5" value="7">
+                                <span class="input-group-text">L</span>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">Pressure</span>
+                                <input type="number" class="form-control" id="modal_cyl_bar" min="50" max="300" step="10" value="200">
+                                <span class="input-group-text">bar</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -244,7 +285,7 @@
         <div class="row g-3 mb-4">
 
             <!-- Diluent Gas Library -->
-            <div class="col-md-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -258,8 +299,26 @@
                 </div>
             </div>
 
+            <!-- Bailout Gas Library -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="card-section-title mb-0">Bailout Gases</div>
+                                <span style="background:rgba(220,53,69,0.12);color:#dc3545;font-size:0.6rem;font-weight:700;border:1px solid rgba(220,53,69,0.3);padding:0.15rem 0.35rem;border-radius:4px;">OC</span>
+                            </div>
+                            <button class="btn-add-gas" onclick="openAddBailoutGas()" title="Add bailout gas" aria-label="Add bailout gas">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div class="gas-library" id="bailout_library"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Dive Parameters -->
-            <div class="col-md-4">
+            <div class="col-md-6 col-xl-3">
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="card-section-title">Dive Parameters</div>
@@ -283,7 +342,7 @@
             </div>
 
             <!-- Calculate -->
-            <div class="col-md-4 d-flex flex-column">
+            <div class="col-md-6 col-xl-3 d-flex flex-column">
                 <div class="card h-100">
                     <div class="card-body d-flex flex-column justify-content-between">
                         <div>
@@ -351,6 +410,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-    <script src="planner.js?v=32"></script>
+    <script src="planner.js?v=33"></script>
 </body>
 </html>
