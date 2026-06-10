@@ -107,6 +107,37 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         'exceeded_limit': density_gl > 6.3,
     }
 
+    warnings = []
+    diluent_ppo2 = (diluent_o2 / 100.0) * (depth_m / 10.0 + 1.0)
+    if diluent_ppo2 > setpoint:
+        warnings.append({
+            'level': 'danger',
+            'message': (
+                f'Diluent ppO₂ at {depth_m:.0f} m is {diluent_ppo2:.2f} bar — '
+                f'exceeds setpoint ({setpoint:.2f} bar). '
+                f'The CCR cannot reduce ppO₂ below the diluent floor; '
+                f'actual ppO₂ at depth will be {diluent_ppo2:.2f} bar.'
+            ),
+        })
+    if density_analysis['exceeded_limit']:
+        warnings.append({
+            'level': 'danger',
+            'message': (
+                f'Gas density exceeds the BSAC upper limit '
+                f'({density_gl:.2f} g/L — limit 6.3 g/L). '
+                f'This diluent is not safe to breathe at this depth.'
+            ),
+        })
+    elif density_analysis['exceeded_recommended']:
+        warnings.append({
+            'level': 'warning',
+            'message': (
+                f'Gas density exceeds the BSAC recommended limit '
+                f'({density_gl:.2f} g/L — recommended ≤5.2 g/L). '
+                f'Increased work of breathing and CO₂ retention risk.'
+            ),
+        })
+
     # TTS = time from ascent start to surface (bottom_time_min is run time when ascent begins)
     tts_min = round(max(0.0, profile.total_time_min - bottom_time_min), 1)
     cns_pct = round(_cns_rate(setpoint) * profile.total_time_min, 1)
@@ -122,6 +153,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             for s in profile.stops
         ],
         'total_time_min': profile.total_time_min,
+        'warnings': warnings,
         'density_analysis': density_analysis,
         'profile_points': profile.profile_points,
         'tissue_saturations': profile.tissue_saturations,

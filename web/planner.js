@@ -1,4 +1,4 @@
-﻿var LOCAL_URL = 'http://localhost:7071/api/DivePlanner';
+var LOCAL_URL = 'http://localhost:7071/api/DivePlanner';
 var PROD_URL  = 'https://gasblender-tcif7s.azurewebsites.net/api/DivePlanner';
 
 // ── Cookie helpers ────────────────────────────────────────────────────────────
@@ -355,30 +355,10 @@ function calculate() {
 function buildResult(data) {
     var frag = document.createDocumentFragment();
 
-    var _gas   = activeGas();
-    var _depth = parseFloat(document.getElementById('depth_m').value) || 0;
-    if (_gas) {
-        var diluentPpO2 = (_gas.o2 / 100) * (_depth / 10 + 1);
-        if (diluentPpO2 > _gas.setpoint) {
-            frag.appendChild(buildAlert(
-                'danger',
-                'Diluent ppO&#x2082; at ' + _depth + '&thinsp;m is <strong>' + diluentPpO2.toFixed(2) + ' bar</strong> &mdash; exceeds setpoint (' + _gas.setpoint.toFixed(2) + ' bar). ' +
-                'The CCR cannot reduce ppO&#x2082; below the diluent floor; actual ppO&#x2082; at depth will be ' + diluentPpO2.toFixed(2) + ' bar.'
-            ));
-        }
-    }
-
-    var da = data.density_analysis;
-    if (da.exceeded_limit) {
-        frag.appendChild(buildAlert(
-            'danger',
-            'Gas density exceeds the BSAC upper limit (' + da.density_gl + ' g/L — limit 6.3 g/L). This diluent is not safe to breathe at this depth.'
-        ));
-    } else if (da.exceeded_recommended) {
-        frag.appendChild(buildAlert(
-            'warning',
-            'Gas density exceeds the BSAC recommended limit (' + da.density_gl + ' g/L — recommended ≤5.2 g/L). Increased work of breathing and CO₂ retention risk.'
-        ));
+    if (data.warnings) {
+        data.warnings.forEach(function (w) {
+            frag.appendChild(buildAlert(w.level, w.message));
+        });
     }
 
     var scheduleDiv = document.createElement('div');
@@ -815,10 +795,10 @@ function buildMetricsCard(data) {
     return card;
 }
 
-function buildAlert(type, html) {
+function buildAlert(type, message) {
     var div = document.createElement('div');
     div.className = 'alert alert-' + type + ' rounded-3 density-warning mb-3';
-    div.innerHTML = html;
+    div.textContent = message;
     return div;
 }
 

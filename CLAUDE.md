@@ -85,6 +85,7 @@ The following are already in the allowlists (`.claude/settings.json` and `.claud
 ## Conventions
 
 - **Single source of truth**: all gas blending logic lives in `gas_blender.py`; all decompression logic lives in `planner/`. Neither function (`TrimixBlend/`, `DivePlanner/`) duplicates logic — they only parse, validate, and call.
+- **Warnings belong in the API**: all safety warnings (ppO₂ floor, gas density) are generated in `DivePlanner/__init__.py` and returned as a `warnings` array (`[{level, message}]`). The frontend (and any future client such as an Android app) only renders them — no warning logic in the UI.
 - **Snake_case** for functions (`topup_blend`), PascalCase for classes (`Gas`, `TrimixBlend`, `BlendStep`).
 - **No comments** unless the why is non-obvious.
 - **Pinned dependencies** in `requirements.txt` (currently `azure-functions==1.24.0`).
