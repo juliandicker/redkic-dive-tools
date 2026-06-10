@@ -733,7 +733,14 @@ function bailoutGasAtDepth(depth) {
 }
 
 function buildBailoutScheduleCard(bailout) {
-    var depthM = parseFloat(document.getElementById('depth_m').value) || 0;
+    var depthM    = parseFloat(document.getElementById('depth_m').value) || 0;
+    var btMin     = parseFloat(document.getElementById('bottom_time').value) || 0;
+    var descRate  = parseFloat(document.getElementById('desc_rate').value) || 20;
+    var gas       = activeGas();
+    var sp        = gas ? gas.setpoint : 1.3;
+    var gShort    = gas ? gasNameCompact(gas.o2, gas.he) : '—';
+    var descTime  = Math.round(depthM / descRate);
+    var flatBtMin = Math.round(btMin - descTime);
 
     var section = document.createElement('div');
     section.className = 'mb-4 mt-4';
@@ -745,11 +752,17 @@ function buildBailoutScheduleCard(bailout) {
         '<span style="background:rgba(220,53,69,0.12);color:#dc3545;font-size:0.63rem;font-weight:700;border:1px solid rgba(220,53,69,0.3);padding:0.2rem 0.45rem;border-radius:4px;">OC</span>';
     section.appendChild(heading);
 
+    var noteEl = document.createElement('p');
+    noteEl.className = 'text-muted mb-2';
+    noteEl.style.fontSize = '0.73rem';
+    noteEl.textContent = 'Worst-case scenario: bail out at end of bottom time. Tissue loading from the CCR phase is carried into the OC ascent.';
+    section.appendChild(noteEl);
+
     if (bailout.gas_switches && bailout.gas_switches.length > 0) {
         var switchNote = document.createElement('div');
         switchNote.className = 'text-muted mb-2';
         switchNote.style.fontSize = '0.73rem';
-        var switchText = 'Gas switches: ';
+        var switchText = 'OC gas switches: ';
         bailout.gas_switches.forEach(function (sw, i) {
             if (i > 0) switchText += ' · ';
             switchText += sw.label + ' at ' + sw.depth_m + ' m';
@@ -779,26 +792,49 @@ function buildBailoutScheduleCard(bailout) {
 
     var tbody = document.createElement('tbody');
 
-    var bailGas = bailoutGasAtDepth(depthM);
-    var bailGasName = bailGas ? gasNameCompact(bailGas.o2, bailGas.he) : '—';
-    var bailPpO2 = bailGas ? (bailGas.o2 / 100 * (depthM / 10 + 1.013)).toFixed(2) : '—';
-    var trBail = document.createElement('tr');
-    trBail.innerHTML =
-        '<td class="ps-2"><i class="bi bi-exclamation-circle" style="color:#dc3545"></i></td>' +
-        '<td>' + depthM + 'm (bail)</td>' +
-        '<td>—</td>' +
-        '<td>0</td>' +
-        '<td>' + bailPpO2 + '</td>' +
-        '<td>' + bailGasName + '</td>';
-    tbody.appendChild(trBail);
+    // CCR descent row
+    var trDesc = document.createElement('tr');
+    trDesc.style.background = 'rgba(0,119,182,0.04)';
+    trDesc.innerHTML =
+        '<td class="ps-2"><i class="bi bi-arrow-down-circle" style="color:#0077b6"></i></td>' +
+        '<td>0→' + depthM + 'm</td>' +
+        '<td>' + descTime + '</td>' +
+        '<td>' + descTime + '</td>' +
+        '<td>' + sp.toFixed(2) + '</td>' +
+        '<td>' + gShort + ' <span style="font-size:0.6rem;color:var(--muted);">CCR</span></td>';
+    tbody.appendChild(trDesc);
+
+    // CCR bottom row
+    var trBtm = document.createElement('tr');
+    trBtm.style.background = 'rgba(0,119,182,0.04)';
+    trBtm.innerHTML =
+        '<td class="ps-2"><i class="bi bi-circle-fill" style="color:#03045e;font-size:0.55em;vertical-align:middle"></i></td>' +
+        '<td>' + depthM + 'm</td>' +
+        '<td>' + flatBtMin + '</td>' +
+        '<td>' + Math.round(btMin) + '</td>' +
+        '<td>' + sp.toFixed(2) + '</td>' +
+        '<td>' + gShort + ' <span style="font-size:0.6rem;color:var(--muted);">CCR</span></td>';
+    tbody.appendChild(trBtm);
+
+    // OC bailout switch separator row
+    var firstOcGas = bailoutGasAtDepth(depthM);
+    var firstOcName = firstOcGas ? gasNameCompact(firstOcGas.o2, firstOcGas.he) : '—';
+    var trSwitch = document.createElement('tr');
+    trSwitch.style.background = 'rgba(220,53,69,0.07)';
+    trSwitch.innerHTML =
+        '<td colspan="6" style="font-size:0.71rem;font-weight:700;color:#dc3545;padding:0.25rem 0.5rem;">' +
+        '<i class="bi bi-lightning-charge-fill"></i> OC bailout at ' + depthM + ' m — breathing ' + firstOcName +
+        '</td>';
+    tbody.appendChild(trSwitch);
 
     if (bailout.stops.length === 0) {
+        var ascTime = Math.round(bailout.total_time_min);
         var trAsc = document.createElement('tr');
         trAsc.innerHTML =
             '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#198754"></i></td>' +
             '<td>' + depthM + '→0m</td>' +
-            '<td>' + Math.round(bailout.total_time_min) + '</td>' +
-            '<td>' + Math.round(bailout.total_time_min) + '</td>' +
+            '<td>' + ascTime + '</td>' +
+            '<td>' + Math.round(btMin + bailout.total_time_min) + '</td>' +
             '<td>—</td>' +
             '<td>—</td>';
         tbody.appendChild(trAsc);
@@ -812,7 +848,7 @@ function buildBailoutScheduleCard(bailout) {
                 '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#e07000"></i></td>' +
                 '<td>' + stop.depth_m + 'm</td>' +
                 '<td>' + stop.time_min + '</td>' +
-                '<td>' + Math.round(stop.runtime_min) + '</td>' +
+                '<td>' + Math.round(btMin + stop.runtime_min) + '</td>' +
                 '<td>' + ppO2 + '</td>' +
                 '<td>' + gName + '</td>';
             tbody.appendChild(tr);
