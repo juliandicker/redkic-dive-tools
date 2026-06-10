@@ -68,6 +68,20 @@ pytest tests/ -v
 ```
 174 tests: 28 covering `Gas`, `BlendStep`, `TrimixBlend`, `topup_blend`; the rest cover the Bühlmann model, CCR dive planner, and OVM cross-validation.
 
+## Pre-approved permissions
+
+The following are already in the allowlists (`.claude/settings.json` and `.claude/settings.local.json`) — no need to ask before running these:
+
+- **Tests**: `.venv\Scripts\pytest tests/ -v`, `.venv\Scripts\pytest tests/ -q`, `python -m pytest tests/`
+- **Dev server**: `func host start`, `python -m http.server 8080 --directory web`, `azurite`
+- **Dependencies**: `pip install -r requirements.txt`, `pip install -r requirements-dev.txt`, `pip install *`
+- **Azure CLI**: `az bicep *`, `az deployment *`
+- **Git**: `git add *`, `git commit`, `git push`, `git rm`, `git mv`
+- **GitHub CLI**: `gh run *`, `gh pr *`
+- **Browser automation (Playwright MCP)**: navigate, snapshot, screenshot, click, fill, type, hover, press key, drag, select, evaluate, wait, console messages
+- **GitHub MCP**: `mcp__github__get_me`, `mcp__github__issue_read`, `mcp__github__issue_write`
+- **Web**: `WebSearch`, `WebFetch` for docs and reference sites
+
 ## Conventions
 
 - **Single source of truth**: all gas blending logic lives in `gas_blender.py`; all decompression logic lives in `planner/`. Neither function (`TrimixBlend/`, `DivePlanner/`) duplicates logic — they only parse, validate, and call.
