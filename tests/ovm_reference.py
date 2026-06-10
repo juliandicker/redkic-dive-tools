@@ -15,6 +15,12 @@ OVM settings applied to every case
   setpoint_switch_depth_m   : 0
   bailout_mixes             : none
 
+Convention note
+-----------------------------------
+  Our planner uses "run time to ascent start" for bottom_time_min (descent included).
+  OVM's BT is flat time at depth. Each bottom_time_min below = OVM flat BT + depth/20
+  so the tissue loading passed to plan_ccr_dive() is identical to the OVM scenario.
+
 Known divergence from our planner
 -----------------------------------
   * OVM single 9 m/min ascent rate; our planner uses 9 m/min >6 m, 3 m/min ≤6 m
@@ -43,7 +49,7 @@ OVM_SETTINGS = {
 OVM_CASES = {
     "01_no_deco": {
         "input": {
-            "depth_m": 20, "bottom_time_min": 25,
+            "depth_m": 20, "bottom_time_min": 26.0,
             "diluent_o2_pct": 21, "diluent_he_pct": 0,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -54,7 +60,7 @@ OVM_CASES = {
     },
     "02_shallow_light_deco": {
         "input": {
-            "depth_m": 25, "bottom_time_min": 40,
+            "depth_m": 25, "bottom_time_min": 41.25,
             "diluent_o2_pct": 21, "diluent_he_pct": 0,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -67,7 +73,7 @@ OVM_CASES = {
     },
     "03_shallow_moderate_deco": {
         "input": {
-            "depth_m": 30, "bottom_time_min": 50,
+            "depth_m": 30, "bottom_time_min": 51.5,
             "diluent_o2_pct": 21, "diluent_he_pct": 0,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -82,7 +88,7 @@ OVM_CASES = {
     },
     "04_reference_43m_trimix": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -100,7 +106,7 @@ OVM_CASES = {
     },
     "05_deep_trimix_55m": {
         "input": {
-            "depth_m": 55, "bottom_time_min": 25,
+            "depth_m": 55, "bottom_time_min": 27.75,
             "diluent_o2_pct": 10, "diluent_he_pct": 70,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -120,7 +126,7 @@ OVM_CASES = {
     },
     "06_deep_trimix_70m": {
         "input": {
-            "depth_m": 70, "bottom_time_min": 20,
+            "depth_m": 70, "bottom_time_min": 23.5,
             "diluent_o2_pct": 10, "diluent_he_pct": 70,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -142,7 +148,7 @@ OVM_CASES = {
     },
     "07_conservative_gf_40_70": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.3, "gf_low": 0.40, "gf_high": 0.70,
         },
@@ -161,7 +167,7 @@ OVM_CASES = {
     },
     "08_liberal_gf_85_85": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.3, "gf_low": 0.85, "gf_high": 0.85,
         },
@@ -178,7 +184,7 @@ OVM_CASES = {
     },
     "09_low_setpoint_1_2": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.2, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -196,7 +202,7 @@ OVM_CASES = {
     },
     "10_high_setpoint_1_4": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.4, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -213,7 +219,7 @@ OVM_CASES = {
     },
     "11_long_bottom_time": {
         "input": {
-            "depth_m": 40, "bottom_time_min": 75,
+            "depth_m": 40, "bottom_time_min": 77.0,
             "diluent_o2_pct": 18, "diluent_he_pct": 45,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -231,7 +237,7 @@ OVM_CASES = {
     },
     "12_deep_long_trimix": {
         "input": {
-            "depth_m": 60, "bottom_time_min": 35,
+            "depth_m": 60, "bottom_time_min": 38.0,
             "diluent_o2_pct": 10, "diluent_he_pct": 70,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -254,7 +260,7 @@ OVM_CASES = {
     # --- Cases 13-16 inspired by MVPlan2 debug scenarios (recorded 2026-06-09) ---
     "13_mvplan_deep_tx1555_gf5080": {
         "input": {
-            "depth_m": 75, "bottom_time_min": 27,
+            "depth_m": 75, "bottom_time_min": 30.75,
             "diluent_o2_pct": 15, "diluent_he_pct": 55,
             "setpoint_bar": 1.3, "gf_low": 0.50, "gf_high": 0.80,
         },
@@ -279,7 +285,7 @@ OVM_CASES = {
     },
     "14_tx1535_gf5080": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 15, "diluent_he_pct": 35,
             "setpoint_bar": 1.3, "gf_low": 0.50, "gf_high": 0.80,
         },
@@ -297,7 +303,7 @@ OVM_CASES = {
     },
     "15_ean28_nitrox_diluent": {
         "input": {
-            "depth_m": 43, "bottom_time_min": 50,
+            "depth_m": 43, "bottom_time_min": 52.15,
             "diluent_o2_pct": 28, "diluent_he_pct": 0,
             "setpoint_bar": 1.3, "gf_low": 0.60, "gf_high": 0.80,
         },
@@ -315,7 +321,7 @@ OVM_CASES = {
     },
     "16_tx2135_gf5080": {
         "input": {
-            "depth_m": 50, "bottom_time_min": 20,
+            "depth_m": 50, "bottom_time_min": 22.5,
             "diluent_o2_pct": 21, "diluent_he_pct": 35,
             "setpoint_bar": 1.3, "gf_low": 0.50, "gf_high": 0.80,
         },

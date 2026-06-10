@@ -65,20 +65,17 @@ class TestPlannerStructure:
         assert conservative.total_time_min > liberal.total_time_min
 
     def test_total_time_accounts_for_descent_and_bottom(self):
-        # Descent at 20 m/min to 60 m = 3 min; bottom 20 min; ascent at minimum = some time
+        # bottom_time_min=20 = run time to ascent start; 3 min descent leaves 17 min flat
         gas = CCRGas(10, 70, 1.3)
         profile = plan_ccr_dive(gas, 60, 20, 0.6, 0.8)
-        assert profile.total_time_min > 23.0  # must be more than descent + bottom alone
+        assert profile.total_time_min > 20.0  # must exceed the bottom time itself
 
 
 class TestCCRReferenceScenario:
     """
-    Reference: 60 m / 20 min bottom time / 10/70 diluent / 1.3 bar setpoint / GF 60/80
+    Reference: 60 m / ascent starts at 20 min (17 min flat bottom) / 10/70 diluent / 1.3 bar / GF 60/80
     Descent at 20 m/min, ascent 9 m/min to 6 m then 3 m/min.
-
-    OVM Planner cross-validation values: to be filled in once the user runs OVM against
-    these exact parameters. Placeholder assertions use wide tolerance so they fail loudly
-    once real values are known.
+    bottom_time_min=20 means run time to start of ascent (includes 3 min descent).
     """
 
     @pytest.fixture(scope='class')

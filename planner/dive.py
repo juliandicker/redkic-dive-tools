@@ -38,6 +38,7 @@ def plan_ccr_dive(
 ):
     """Plan a CCR dive and return a DiveProfile with deco stops.
 
+    bottom_time_min: run time from dive start until ascent begins (includes descent).
     gf_low and gf_high are fractions (0.0–1.0).
     Stops are at 3 m multiples, minimum 1 min each.
     """
@@ -56,13 +57,16 @@ def plan_ccr_dive(
     # Descent
     rec(0.0, 0.0)
     desc_time = bottom_depth_m / desc_rate_mpm
+    flat_bottom_time = bottom_time_min - desc_time
+    if flat_bottom_time < 0:
+        raise ValueError("bottom_time_min must exceed descent time")
     model.load_segment(gas, 0.0, bottom_depth_m, desc_time)
     runtime_min += desc_time
     rec(bottom_depth_m, model.ceiling_m(gf_low))
 
     # Bottom time
-    model.load_segment(gas, bottom_depth_m, bottom_depth_m, bottom_time_min)
-    runtime_min += bottom_time_min
+    model.load_segment(gas, bottom_depth_m, bottom_depth_m, flat_bottom_time)
+    runtime_min += flat_bottom_time
     rec(bottom_depth_m, model.ceiling_m(gf_low))
 
     # Ascent — step up the 3 m deco grid, loading tissues at each step.

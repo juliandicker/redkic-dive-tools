@@ -134,6 +134,28 @@
                     <span class="input-group-text">%</span>
                 </div>
             </div>
+            <div class="card-section-title mb-2 mt-3">Ascent / Descent Rates</div>
+            <div class="mb-2">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Descent</span>
+                    <input type="number" class="form-control" id="desc_rate" min="5" max="30" value="20">
+                    <span class="input-group-text">m/min</span>
+                </div>
+            </div>
+            <div class="mb-2">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Ascent (&gt;6 m)</span>
+                    <input type="number" class="form-control" id="asc_rate_deep" min="1" max="20" value="9">
+                    <span class="input-group-text">m/min</span>
+                </div>
+            </div>
+            <div class="mb-0">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Ascent (≤6 m)</span>
+                    <input type="number" class="form-control" id="asc_rate_shallow" min="1" max="10" value="3">
+                    <span class="input-group-text">m/min</span>
+                </div>
+            </div>
             <div class="accordion accordion-flush mt-3" id="settingsAccordion">
                 <div class="accordion-item">
                     <h2 class="accordion-header">
@@ -250,8 +272,8 @@
                         </div>
                         <div class="mb-0">
                             <div class="input-group input-group-sm">
-                                <span class="input-group-text">Bottom time</span>
-                                <input type="number" class="form-control" id="bottom_time" min="1" max="120" value="20">
+                                <span class="input-group-text" title="Run time from surface to start of ascent (includes descent)">Bottom time</span>
+                                <input type="number" class="form-control" id="bottom_time" min="1" max="360" value="20">
                                 <span class="input-group-text">min</span>
                             </div>
                         </div>
@@ -266,7 +288,7 @@
                         <div>
                             <div class="card-section-title">Algorithm</div>
                             <p class="text-muted mb-1" style="font-size:0.78rem;">Bühlmann ZHL-16C &middot; CCR setpoint &middot; GF Low/High</p>
-                            <p class="text-muted mb-0" style="font-size:0.78rem;">Ascent: 9&thinsp;m/min &middot; 3&thinsp;m/min below 6&thinsp;m &middot; 3&thinsp;m stops</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">3&thinsp;m stops &middot; Bottom time = run time to start of ascent</p>
                         </div>
                         <button class="btn btn-apply w-100 mt-3" onclick="calculate()">Calculate Decompression</button>
                     </div>
@@ -328,6 +350,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-    <script src="planner.js?v=27"></script>
+    <script src="planner.js?v=28"></script>
 </body>
 </html>

@@ -312,14 +312,21 @@ function calculate() {
 
     loadingEl.classList.remove('d-none');
 
+    var descRate       = parseFloat(document.getElementById('desc_rate').value) || 20;
+    var ascRateDeep    = parseFloat(document.getElementById('asc_rate_deep').value) || 9;
+    var ascRateShallow = parseFloat(document.getElementById('asc_rate_shallow').value) || 3;
+
     var payload = JSON.stringify({
-        diluent_o2:      gas.o2,
-        diluent_he:      gas.he,
-        setpoint:        gas.setpoint,
-        depth_m:         parseFloat(document.getElementById('depth_m').value),
-        bottom_time_min: parseFloat(document.getElementById('bottom_time').value),
-        gf_low:          gfLow,
-        gf_high:         gfHigh,
+        diluent_o2:           gas.o2,
+        diluent_he:           gas.he,
+        setpoint:             gas.setpoint,
+        depth_m:              parseFloat(document.getElementById('depth_m').value),
+        bottom_time_min:      parseFloat(document.getElementById('bottom_time').value),
+        gf_low:               gfLow,
+        gf_high:              gfHigh,
+        desc_rate_mpm:        descRate,
+        asc_rate_deep_mpm:    ascRateDeep,
+        asc_rate_shallow_mpm: ascRateShallow,
     });
 
     var h   = window.location.hostname;
@@ -371,15 +378,16 @@ function buildResult(data) {
     scheduleDiv.appendChild(heading);
 
     var gas = activeGas();
-    var depthM    = parseFloat(document.getElementById('depth_m').value) || 0;
-    var btMin     = parseFloat(document.getElementById('bottom_time').value) || 0;
-    var sp        = gas ? gas.setpoint : 1.3;
-    var gO2       = gas ? gas.o2 : 21;
-    var gHe       = gas ? gas.he : 0;
-    var gName     = gas ? gasName(gO2, gHe) : '—';
-    var gShort    = gas ? gasNameCompact(gO2, gHe) : '—';
-    var descTime  = Math.round(depthM / 20.0);
-    var btRuntime = Math.round(depthM / 20.0 + btMin);
+    var depthM       = parseFloat(document.getElementById('depth_m').value) || 0;
+    var btMin        = parseFloat(document.getElementById('bottom_time').value) || 0;
+    var sp           = gas ? gas.setpoint : 1.3;
+    var gO2          = gas ? gas.o2 : 21;
+    var gHe          = gas ? gas.he : 0;
+    var gName        = gas ? gasName(gO2, gHe) : '—';
+    var gShort       = gas ? gasNameCompact(gO2, gHe) : '—';
+    var descRate     = parseFloat(document.getElementById('desc_rate').value) || 20;
+    var descTime     = Math.round(depthM / descRate);
+    var flatBtMin    = Math.round(btMin - descTime);   // flat time at depth
 
     function densStr(d) {
         return (surfaceDensity(gO2, gHe) * (d / 10.0 + 1.0)).toFixed(2);
@@ -423,21 +431,21 @@ function buildResult(data) {
         '<td>' + gShort + '</td>';
     tbody.appendChild(trDesc);
 
-    // Bottom row
+    // Bottom row — T = flat time at depth, RT = btMin (run time when ascent begins)
     var trBtm = document.createElement('tr');
     trBtm.innerHTML =
         '<td class="ps-2"><i class="bi bi-circle-fill" style="color:#03045e;font-size:0.55em;vertical-align:middle"></i></td>' +
         '<td>' + depthM + 'm</td>' +
-        '<td>' + btMin + '</td>' +
-        '<td>' + btRuntime + '</td>' +
+        '<td>' + flatBtMin + '</td>' +
+        '<td>' + Math.round(btMin) + '</td>' +
         '<td>' + sp.toFixed(2) + '</td>' +
         '<td' + (dcDesc ? ' style="color:' + dcDesc + '"' : '') + '>' + densStr(depthM) + '</td>' +
         '<td>' + gShort + '</td>';
     tbody.appendChild(trBtm);
 
     if (data.stops.length === 0) {
-        var ascTime = Math.round(depthM / 9.0);
-        var ascRuntime = Math.round(depthM / 20.0 + btMin + depthM / 9.0);
+        var ascTime = Math.round(data.total_time_min - btMin);
+        var ascRuntime = Math.round(data.total_time_min);
         var trAsc = document.createElement('tr');
         trAsc.innerHTML =
             '<td class="ps-2"><i class="bi bi-arrow-up-circle" style="color:#198754"></i></td>' +
@@ -967,7 +975,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (savedLow)  document.getElementById('gf_low').value  = savedLow;
     if (savedHigh) document.getElementById('gf_high').value = savedHigh;
 
-    ['gf_low', 'gf_high'].forEach(function (id) {
+    var savedDescRate      = getCookie('desc_rate');
+    var savedAscRateDeep   = getCookie('asc_rate_deep');
+    var savedAscRateShallow = getCookie('asc_rate_shallow');
+    if (savedDescRate)       document.getElementById('desc_rate').value       = savedDescRate;
+    if (savedAscRateDeep)    document.getElementById('asc_rate_deep').value   = savedAscRateDeep;
+    if (savedAscRateShallow) document.getElementById('asc_rate_shallow').value = savedAscRateShallow;
+
+    ['gf_low', 'gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow'].forEach(function (id) {
         document.getElementById(id).addEventListener('change', function () {
             setCookie(id, this.value);
         });

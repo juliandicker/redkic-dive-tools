@@ -67,6 +67,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     bottom_time_min = float(body['bottom_time_min'])
     gf_low = float(body.get('gf_low', 60)) / 100.0
     gf_high = float(body.get('gf_high', 80)) / 100.0
+    desc_rate_mpm = float(body.get('desc_rate_mpm', 20.0))
+    asc_rate_deep_mpm = float(body.get('asc_rate_deep_mpm', 9.0))
+    asc_rate_shallow_mpm = float(body.get('asc_rate_shallow_mpm', 3.0))
 
     if not (0 < diluent_o2 + diluent_he <= 100):
         return func.HttpResponse("Invalid diluent composition.", status_code=400)
@@ -76,10 +79,19 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("Depth and bottom time must be positive.", status_code=400)
     if not (0 < gf_low <= gf_high <= 1.0):
         return func.HttpResponse("GF Low must be ≤ GF High, both between 1 and 100.", status_code=400)
+    if not (1.0 <= desc_rate_mpm <= 50.0) or not (1.0 <= asc_rate_deep_mpm <= 30.0) or not (1.0 <= asc_rate_shallow_mpm <= 30.0):
+        return func.HttpResponse("Ascent/descent rates out of range.", status_code=400)
+    if bottom_time_min <= depth_m / desc_rate_mpm:
+        return func.HttpResponse("Bottom time must exceed descent time.", status_code=400)
 
     try:
         gas = CCRGas(diluent_o2, diluent_he, setpoint)
-        profile = plan_ccr_dive(gas, depth_m, bottom_time_min, gf_low, gf_high)
+        profile = plan_ccr_dive(
+            gas, depth_m, bottom_time_min, gf_low, gf_high,
+            desc_rate_mpm=desc_rate_mpm,
+            asc_rate_deep_mpm=asc_rate_deep_mpm,
+            asc_rate_shallow_mpm=asc_rate_shallow_mpm,
+        )
     except Exception as e:
         logging.exception("Planning error")
         return func.HttpResponse(str(e), status_code=500)
@@ -91,8 +103,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         'exceeded_limit': density_gl > 6.3,
     }
 
-    desc_time = depth_m / 20.0  # default descent rate 20 m/min
-    tts_min = round(max(0.0, profile.total_time_min - desc_time - bottom_time_min), 1)
+    # TTS = time from ascent start to surface (bottom_time_min is run time when ascent begins)
+    tts_min = round(max(0.0, profile.total_time_min - bottom_time_min), 1)
     cns_pct = round(_cns_rate(setpoint) * profile.total_time_min, 1)
     otu = round(_otu_rate(setpoint) * profile.total_time_min, 1)
 
