@@ -393,7 +393,7 @@ function loadBailoutLibrary() {
     }
     nextBailoutId = 1;
     bailoutLibrary = DEFAULT_BAILOUT_GASES.map(function (g) {
-        return { id: nextBailoutId++, o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l, cyl_bar: g.cyl_bar, active: true };
+        return { id: nextBailoutId++, o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l, cyl_bar: g.cyl_bar, active: false };
     });
     saveBailoutLibrary();
 }
