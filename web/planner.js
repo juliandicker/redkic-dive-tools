@@ -468,6 +468,19 @@ function applyGF(low, high) {
     setCookie('gf_high', high);
 }
 
+function applyBailoutGF(low, high) {
+    document.getElementById('bailout_gf_low').value  = low;
+    document.getElementById('bailout_gf_high').value = high;
+    setCookie('bailout_gf_low',  low);
+    setCookie('bailout_gf_high', high);
+}
+
+function applyBailoutGFFromCCR() {
+    var low  = document.getElementById('gf_low').value;
+    var high = document.getElementById('gf_high').value;
+    applyBailoutGF(low, high);
+}
+
 function initPopovers() {
     document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
         var existing = bootstrap.Popover.getInstance(el);
