@@ -945,27 +945,12 @@ function buildChart(data) {
     profileBox.appendChild(profileCanvas);
     wrap.appendChild(profileBox);
 
-    // Tissue panel (visible by default)
-    var tissueToggle = document.createElement('button');
-    tissueToggle.className = 'btn btn-sm btn-outline-secondary w-100 tissue-toggle';
-    tissueToggle.textContent = 'Hide Tissue Saturation';
-    var tissuePanel = document.createElement('div');
-    tissuePanel.style.display = 'block';
     var tissueBox = document.createElement('div');
     tissueBox.style.height = '200px';
     tissueBox.style.position = 'relative';
     var tissueCanvas = document.createElement('canvas');
     tissueBox.appendChild(tissueCanvas);
-    tissuePanel.appendChild(tissueBox);
-    tissueToggle.onclick = function () {
-        var open = tissuePanel.style.display !== 'none';
-        tissuePanel.style.display = open ? 'none' : 'block';
-        tissueToggle.textContent = open ? 'Show Tissue Saturation' : 'Hide Tissue Saturation';
-        if (!open) renderTissueChart(tissueCanvas, data);
-        if (open && _tissueChart) { _tissueChart.destroy(); _tissueChart = null; }
-    };
-    wrap.appendChild(tissueToggle);
-    wrap.appendChild(tissuePanel);
+    wrap.appendChild(tissueBox);
 
     // Render profile chart on next tick (canvas needs to be in DOM for sizing)
     setTimeout(function () {
@@ -1207,26 +1192,12 @@ function buildBailoutChart(data) {
     profileBox.appendChild(profileCanvas);
     wrap.appendChild(profileBox);
 
-    var tissueToggle = document.createElement('button');
-    tissueToggle.className = 'btn btn-sm btn-outline-secondary w-100 tissue-toggle';
-    tissueToggle.textContent = 'Hide Tissue Saturation';
-    var tissuePanel = document.createElement('div');
-    tissuePanel.style.display = 'block';
     var tissueBox = document.createElement('div');
     tissueBox.style.height = '200px';
     tissueBox.style.position = 'relative';
     var tissueCanvas = document.createElement('canvas');
     tissueBox.appendChild(tissueCanvas);
-    tissuePanel.appendChild(tissueBox);
-    tissueToggle.onclick = function () {
-        var open = tissuePanel.style.display !== 'none';
-        tissuePanel.style.display = open ? 'none' : 'block';
-        tissueToggle.textContent = open ? 'Show Tissue Saturation' : 'Hide Tissue Saturation';
-        if (!open) _renderBailoutTissueChart(tissueCanvas, data);
-        if (open && _bailoutTissueChart) { _bailoutTissueChart.destroy(); _bailoutTissueChart = null; }
-    };
-    wrap.appendChild(tissueToggle);
-    wrap.appendChild(tissuePanel);
+    wrap.appendChild(tissueBox);
 
     setTimeout(function () {
         _renderBailoutProfileChart(profileCanvas, data);
