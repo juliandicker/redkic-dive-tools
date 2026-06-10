@@ -653,7 +653,7 @@ function renderProfileChart(canvas, data) {
                 legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
                 tooltip: {
                     callbacks: {
-                        title: function (items) { return items[0].parsed.x.toFixed(1) + ' min'; },
+                        title: function (items) { return Math.round(items[0].parsed.x) + ' min'; },
                         label: function (item) {
                             return item.dataset.label + ': ' + item.parsed.y + ' m';
                         },
