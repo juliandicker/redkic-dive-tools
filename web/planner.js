@@ -871,8 +871,11 @@ function buildBailoutScheduleCard(bailout) {
     metCard.className = 'card mt-3';
     var metBody = document.createElement('div');
     metBody.className = 'card-body py-2 px-3';
+    var totalRuntime = Math.round(btMin + bailout.total_time_min);
     metBody.innerHTML =
         '<div class="d-flex justify-content-around text-center">' +
+            '<div><div class="field-label mb-1">Runtime</div>' +
+                '<div style="font-size:1.05rem;font-weight:800;color:var(--ocean);">' + totalRuntime + ' min</div></div>' +
             '<div><div class="field-label mb-1">TTS (OC)</div>' +
                 '<div style="font-size:1.05rem;font-weight:800;color:var(--ocean);">' + bailout.tts_min + ' min</div></div>' +
             '<div><div class="field-label mb-1">CNS</div>' +
