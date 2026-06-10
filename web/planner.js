@@ -178,7 +178,7 @@ function openAddGas() {
     document.getElementById('gasModalLabel').textContent = 'Add Diluent Gas';
     document.getElementById('modal_o2').value = 21;
     document.getElementById('modal_he').value = 0;
-    document.getElementById('modal_sp').value = 1.3;
+    document.getElementById('modal_sp').value = 1.4;
     document.getElementById('modal_bestmix_note').textContent = '';
     updateModalPreview();
     _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));

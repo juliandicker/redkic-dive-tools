@@ -3,8 +3,8 @@ import logging
 import math
 import azure.functions as func
 from gas_blender import gas_density
-from planner.gas import CCRGas
-from planner.dive import plan_ccr_dive
+from planner.gas import CCRGas, OpenCircuitGas
+from planner.dive import plan_ccr_dive, plan_oc_bailout
 
 # NOAA single-dive CNS table: (ppO2, % per minute)
 _CNS_TABLE = [
@@ -44,6 +44,34 @@ def _otu_rate(ppo2):
     return ((ppo2 - 0.5) / 0.5) ** (5 / 6)
 
 
+def _oc_cns_otu(bailout_profile, sorted_gases):
+    """Compute CNS% and OTU for an OC bailout plan by integrating per-segment ppO2.
+
+    sorted_gases must be sorted by mod_m ascending (shallowest-MOD first).
+    """
+    def select_gas(depth_m):
+        for g in sorted_gases:
+            if depth_m <= g.mod_m:
+                return g
+        return sorted_gases[-1]
+
+    cns = 0.0
+    otu = 0.0
+    pts = bailout_profile.profile_points
+    for i in range(len(pts) - 1):
+        d1, d2 = pts[i]['d'], pts[i + 1]['d']
+        t1, t2 = pts[i]['t'], pts[i + 1]['t']
+        dt = t2 - t1
+        if dt <= 0:
+            continue
+        avg_depth = (d1 + d2) / 2.0
+        p_abs = avg_depth / 10.0 + 1.013
+        ppo2 = select_gas(avg_depth).fo2 * p_abs
+        cns += _cns_rate(ppo2) * dt
+        otu += _otu_rate(ppo2) * dt
+    return round(cns, 1), round(otu, 1)
+
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('DivePlanner function processed a request.')
 
@@ -73,6 +101,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     last_stop_m = int(body.get('last_stop_m', 3))
     cns_warn_pct = float(body.get('cns_warn_pct', 80))
 
+    # Bailout gases (optional)
+    bailout_gases_raw = body.get('bailout_gases') or []
+    bailout_gf_low = float(body.get('bailout_gf_low', body.get('gf_low', 60))) / 100.0
+    bailout_gf_high = float(body.get('bailout_gf_high', body.get('gf_high', 80))) / 100.0
+
     if not (0 < diluent_o2 + diluent_he <= 100):
         return func.HttpResponse("Invalid diluent composition.", status_code=400)
     if not (0.0 < setpoint <= 2.0):
@@ -89,6 +122,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("cns_warn_pct must be between 1 and 100.", status_code=400)
     if bottom_time_min <= depth_m / desc_rate_mpm:
         return func.HttpResponse("Bottom time must exceed descent time.", status_code=400)
+    if not (0 < bailout_gf_low <= bailout_gf_high <= 1.0):
+        return func.HttpResponse("Bailout GF Low must be ≤ GF High, both between 1 and 100.", status_code=400)
+
+    # Validate bailout gases
+    oc_gases = []
+    for i, g in enumerate(bailout_gases_raw):
+        try:
+            o2 = float(g['o2'])
+            he = float(g.get('he', 0))
+            mod_m = float(g['mod_m'])
+        except (KeyError, TypeError, ValueError):
+            return func.HttpResponse(f"Invalid bailout gas at index {i}.", status_code=400)
+        if not (0 < o2 + he <= 100):
+            return func.HttpResponse(f"Invalid composition for bailout gas {i}.", status_code=400)
+        if mod_m <= 0:
+            return func.HttpResponse(f"Bailout gas {i} MOD must be positive.", status_code=400)
+        oc_gases.append(OpenCircuitGas(o2, he, mod_m))
 
     try:
         gas = CCRGas(diluent_o2, diluent_he, setpoint)
@@ -116,7 +166,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         warnings.append({
             'level': 'danger',
             'message': (
-                f'Diluent ppO₂ at {depth_m:.0f} m is {diluent_ppo2:.2f} bar — '
+                f'Diluent ppO₂ at {depth_m:.0f} m is {diluent_ppo2:.2f} bar — '
                 f'exceeds setpoint ({setpoint:.2f} bar). '
                 f'The CCR cannot reduce ppO₂ below the diluent floor; '
                 f'actual ppO₂ at depth will be {diluent_ppo2:.2f} bar.'
@@ -127,7 +177,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             'level': 'danger',
             'message': (
                 f'Gas density exceeds the BSAC upper limit '
-                f'({density_gl:.2f} g/L — limit 6.3 g/L). '
+                f'({density_gl:.2f} g/L — limit 6.3 g/L). '
                 f'This diluent is not safe to breathe at this depth.'
             ),
         })
@@ -136,7 +186,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             'level': 'warning',
             'message': (
                 f'Gas density exceeds the BSAC recommended limit '
-                f'({density_gl:.2f} g/L — recommended ≤5.2 g/L). '
+                f'({density_gl:.2f} g/L — recommended ≤5.2 g/L). '
                 f'Increased work of breathing and CO₂ retention risk.'
             ),
         })
@@ -155,6 +205,45 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             ),
         })
 
+    # Bailout plan
+    bailout_response = None
+    if oc_gases:
+        try:
+            bailout = plan_oc_bailout(
+                ccr_gas=gas,
+                bottom_depth_m=depth_m,
+                bottom_time_min=bottom_time_min,
+                desc_rate_mpm=desc_rate_mpm,
+                bailout_gases=oc_gases,
+                gf_low=bailout_gf_low,
+                gf_high=bailout_gf_high,
+                asc_rate_deep_mpm=asc_rate_deep_mpm,
+                asc_rate_shallow_mpm=asc_rate_shallow_mpm,
+                last_stop_m=last_stop_m,
+            )
+            sorted_oc = sorted(oc_gases, key=lambda g: g.mod_m)
+            bailout_cns, bailout_otu = _oc_cns_otu(bailout, sorted_oc)
+            bailout_tts = round(bailout.total_time_min, 1)
+            bailout_response = {
+                'stops': [
+                    {
+                        'depth_m': s.depth_m,
+                        'time_min': s.time_min,
+                        'runtime_min': s.runtime_min,
+                    }
+                    for s in bailout.stops
+                ],
+                'total_time_min': bailout.total_time_min,
+                'tts_min': bailout_tts,
+                'cns_pct': bailout_cns,
+                'otu': bailout_otu,
+                'gas_switches': bailout.gas_switches,
+                'profile_points': bailout.profile_points,
+            }
+        except Exception as e:
+            logging.exception("Bailout planning error")
+            warnings.append({'level': 'warning', 'message': f'Bailout plan could not be computed: {e}'})
+
     response = {
         'stops': [
             {
@@ -172,6 +261,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         'tts_min': tts_min,
         'cns_pct': cns_pct,
         'otu': otu,
+        'bailout': bailout_response,
     }
 
     return func.HttpResponse(json.dumps(response), mimetype="application/json")

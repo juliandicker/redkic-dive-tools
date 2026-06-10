@@ -1,6 +1,35 @@
 from .buhlmann import WATER_VAPOUR_BAR
 
 
+class OpenCircuitGas:
+    """Open-circuit gas (trimix, nitrox, oxygen, air).
+
+    Exposes the same pp_n2 / pp_he interface as CCRGas so it can be passed
+    directly to BuhlmannModel.load_segment without any special casing.
+    """
+
+    def __init__(self, o2_pct: float, he_pct: float, mod_m: float):
+        self.fo2 = o2_pct / 100.0
+        self.fhe = he_pct / 100.0
+        self.fn2 = 1.0 - self.fo2 - self.fhe
+        self.mod_m = mod_m
+
+    @property
+    def label(self):
+        if self.fhe == 0.0:
+            return f"{round(self.fo2 * 100)}/{round(self.fn2 * 100)}"
+        return f"{round(self.fo2 * 100)}/{round(self.fhe * 100)}"
+
+    def pp_o2(self, p_abs_bar: float) -> float:
+        return max(0.0, p_abs_bar - WATER_VAPOUR_BAR) * self.fo2
+
+    def pp_n2(self, p_abs_bar: float) -> float:
+        return max(0.0, p_abs_bar - WATER_VAPOUR_BAR) * self.fn2
+
+    def pp_he(self, p_abs_bar: float) -> float:
+        return max(0.0, p_abs_bar - WATER_VAPOUR_BAR) * self.fhe
+
+
 class CCRGas:
     """CCR diluent with a fixed O2 setpoint.
 

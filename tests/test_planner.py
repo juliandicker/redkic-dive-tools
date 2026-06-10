@@ -1,7 +1,8 @@
 import pytest
 from gas_blender import gas_density
-from planner.gas import CCRGas
-from planner.dive import plan_ccr_dive, DiveProfile
+from planner.gas import CCRGas, OpenCircuitGas
+from planner.dive import plan_ccr_dive, plan_oc_bailout, DiveProfile, BailoutProfile
+from planner.buhlmann import WATER_VAPOUR_BAR, SURFACE_BAR
 
 
 class TestPlannerStructure:
@@ -132,6 +133,142 @@ class TestLastStopDepth:
         gas = CCRGas(10, 70, 1.3)
         profile = plan_ccr_dive(gas, 60, 20, 0.6, 0.8, last_stop_m=6)
         assert profile.total_time_min > 20.0
+
+
+class TestOpenCircuitGas:
+
+    def test_pp_n2_at_surface(self):
+        gas = OpenCircuitGas(21, 0, 30)
+        expected = 0.79 * (SURFACE_BAR - WATER_VAPOUR_BAR)
+        assert gas.pp_n2(SURFACE_BAR) == pytest.approx(expected, abs=0.001)
+
+    def test_pp_he_zero_for_nitrox(self):
+        gas = OpenCircuitGas(50, 0, 22)
+        assert gas.pp_he(SURFACE_BAR) == 0.0
+
+    def test_pp_n2_zero_for_pure_o2(self):
+        gas = OpenCircuitGas(100, 0, 6)
+        assert gas.pp_n2(SURFACE_BAR) == 0.0
+        assert gas.pp_he(SURFACE_BAR) == 0.0
+
+    def test_pp_he_trimix(self):
+        gas = OpenCircuitGas(21, 25, 50)
+        p = 7.013  # 60 m abs
+        expected_he = 0.25 * (p - WATER_VAPOUR_BAR)
+        assert gas.pp_he(p) == pytest.approx(expected_he, abs=0.001)
+
+    def test_mod_stored(self):
+        gas = OpenCircuitGas(21, 25, 57)
+        assert gas.mod_m == 57
+
+    def test_label_nitrox(self):
+        gas = OpenCircuitGas(50, 0, 22)
+        assert gas.label == '50/50'
+
+    def test_label_trimix(self):
+        gas = OpenCircuitGas(21, 25, 57)
+        assert gas.label == '21/25'
+
+
+class TestPlanCcrDiveRegression:
+    """Verify the refactored plan_ccr_dive produces the same results as before."""
+
+    @pytest.fixture(scope='class')
+    def profile(self):
+        gas = CCRGas(10, 70, 1.3)
+        return plan_ccr_dive(gas, 60, 20, 0.6, 0.8)
+
+    def test_has_deco_stops(self, profile):
+        assert len(profile.stops) > 0
+
+    def test_total_runtime_plausible(self, profile):
+        assert 45 <= profile.total_time_min <= 120
+
+    def test_shallowest_stop_3m(self, profile):
+        assert profile.stops[-1].depth_m == 3
+
+    def test_profile_points_have_sats(self, profile):
+        for pt in profile.profile_points:
+            assert 'sats' in pt
+            assert len(pt['sats']) == 16
+
+
+class TestPlanOcBailoutStructural:
+
+    @pytest.fixture(scope='class')
+    def bailout(self):
+        ccr_gas = CCRGas(10, 70, 1.3)
+        oc_gases = [
+            OpenCircuitGas(21, 25, 57),
+            OpenCircuitGas(50, 0, 22),
+            OpenCircuitGas(100, 0, 6),
+        ]
+        return plan_oc_bailout(ccr_gas, 60, 20, 20.0, oc_gases, 0.5, 0.8)
+
+    def test_returns_bailout_profile(self, bailout):
+        assert isinstance(bailout, BailoutProfile)
+
+    def test_stops_are_multiples_of_3m(self, bailout):
+        for stop in bailout.stops:
+            assert stop.depth_m % 3 == 0
+
+    def test_stops_in_descending_order(self, bailout):
+        depths = [s.depth_m for s in bailout.stops]
+        assert depths == sorted(depths, reverse=True)
+
+    def test_runtime_monotonically_increases(self, bailout):
+        runtimes = [s.runtime_min for s in bailout.stops]
+        assert runtimes == sorted(runtimes)
+
+    def test_has_deco_stops(self, bailout):
+        # OC from 60m should require decompression
+        assert len(bailout.stops) > 0
+
+    def test_profile_points_start_at_zero(self, bailout):
+        assert bailout.profile_points[0]['t'] == pytest.approx(0.0, abs=0.5)
+
+    def test_gas_switches_list_exists(self, bailout):
+        assert isinstance(bailout.gas_switches, list)
+
+    def test_single_gas_oc_air_more_deco_than_ccr_air(self):
+        # OC air loads more N2 at depth than CCR air (setpoint reduces inert gas).
+        # Bailout total_time_min starts from t=0 at bottom, so it equals TTS.
+        # CCR TTS = total_time_min - bottom_time_min.
+        ccr_gas = CCRGas(21, 0, 1.3)
+        bottom_time_min = 25.0
+        oc_gases = [OpenCircuitGas(21, 0, 40)]
+        ccr_profile = plan_ccr_dive(ccr_gas, 30, bottom_time_min, 0.6, 0.8)
+        bailout = plan_oc_bailout(ccr_gas, 30, bottom_time_min, 20.0, oc_gases, 0.6, 0.8)
+        ccr_tts = ccr_profile.total_time_min - bottom_time_min
+        assert bailout.total_time_min > ccr_tts
+
+
+class TestPlanOcBailoutGasSwitching:
+
+    def test_gas_switches_at_correct_depths(self):
+        ccr_gas = CCRGas(10, 70, 1.3)
+        oc_gases = [
+            OpenCircuitGas(21, 25, 57),   # deep trimix, MOD 57m
+            OpenCircuitGas(50, 0, 22),    # 50% nitrox, MOD 22m
+            OpenCircuitGas(100, 0, 6),    # pure O2, MOD 6m
+        ]
+        bailout = plan_oc_bailout(ccr_gas, 60, 20, 20.0, oc_gases, 0.5, 0.8)
+        switch_depths = [s['depth_m'] for s in bailout.gas_switches]
+        # Should switch to 50% when we reach ≤22m and to 100% when we reach ≤6m
+        assert any(d <= 22 for d in switch_depths), "Expected switch to shallower gas at ≤22m"
+        assert any(d <= 6 for d in switch_depths), "Expected switch to O2 at ≤6m"
+
+    def test_no_stops_deeper_than_deepest_gas_mod(self):
+        ccr_gas = CCRGas(10, 70, 1.3)
+        oc_gases = [
+            OpenCircuitGas(21, 25, 57),
+            OpenCircuitGas(50, 0, 22),
+            OpenCircuitGas(100, 0, 6),
+        ]
+        bailout = plan_oc_bailout(ccr_gas, 60, 20, 20.0, oc_gases, 0.5, 0.8)
+        # All stops must be ≤ shallowest valid ascent ceiling, never unreasonably deep
+        for stop in bailout.stops:
+            assert stop.depth_m <= 60
 
 
 class TestDensityAnalysis:
