@@ -755,27 +755,13 @@ function buildBailoutScheduleCard(bailout) {
     heading.className = 'mb-1 d-flex align-items-center gap-2';
     heading.innerHTML =
         '<span class="result-heading">Bailout Decompression Schedule</span>' +
-        '<span style="background:rgba(220,53,69,0.12);color:#dc3545;font-size:0.63rem;font-weight:700;border:1px solid rgba(220,53,69,0.3);padding:0.2rem 0.45rem;border-radius:4px;">OC</span>';
+        '<span style="background:rgba(220,53,69,0.12);color:#dc3545;font-size:0.63rem;font-weight:700;border:1px solid rgba(220,53,69,0.3);padding:0.2rem 0.45rem;border-radius:4px;">OC</span>' +
+        '<button class="info-btn" tabindex="0"' +
+        ' data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="auto"' +
+        ' data-bs-title="About this plan"' +
+        ' data-bs-content="Worst-case scenario: bail out at end of bottom time. Tissue loading from the CCR phase is carried into the OC ascent.">ⓘ</button>';
     section.appendChild(heading);
-
-    var noteEl = document.createElement('p');
-    noteEl.className = 'text-muted mb-2';
-    noteEl.style.fontSize = '0.73rem';
-    noteEl.textContent = 'Worst-case scenario: bail out at end of bottom time. Tissue loading from the CCR phase is carried into the OC ascent.';
-    section.appendChild(noteEl);
-
-    if (bailout.gas_switches && bailout.gas_switches.length > 0) {
-        var switchNote = document.createElement('div');
-        switchNote.className = 'text-muted mb-2';
-        switchNote.style.fontSize = '0.73rem';
-        var switchText = 'OC gas switches: ';
-        bailout.gas_switches.forEach(function (sw, i) {
-            if (i > 0) switchText += ' · ';
-            switchText += sw.label + ' at ' + sw.depth_m + ' m';
-        });
-        switchNote.textContent = switchText;
-        section.appendChild(switchNote);
-    }
+    initPopovers();
 
     var card = document.createElement('div');
     card.className = 'card';
