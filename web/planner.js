@@ -355,6 +355,19 @@ function calculate() {
 function buildResult(data) {
     var frag = document.createDocumentFragment();
 
+    var _gas   = activeGas();
+    var _depth = parseFloat(document.getElementById('depth_m').value) || 0;
+    if (_gas) {
+        var diluentPpO2 = (_gas.o2 / 100) * (_depth / 10 + 1);
+        if (diluentPpO2 > _gas.setpoint) {
+            frag.appendChild(buildAlert(
+                'danger',
+                'Diluent ppO&#x2082; at ' + _depth + '&thinsp;m is <strong>' + diluentPpO2.toFixed(2) + ' bar</strong> &mdash; exceeds setpoint (' + _gas.setpoint.toFixed(2) + ' bar). ' +
+                'The CCR cannot reduce ppO&#x2082; below the diluent floor; actual ppO&#x2082; at depth will be ' + diluentPpO2.toFixed(2) + ' bar.'
+            ));
+        }
+    }
+
     var da = data.density_analysis;
     if (da.exceeded_limit) {
         frag.appendChild(buildAlert(
