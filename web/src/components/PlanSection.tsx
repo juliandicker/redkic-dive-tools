@@ -281,7 +281,7 @@ export default function PlanSection({
                         const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
                         const ppo2 = ((gasAtSwitch.o2 / 100) * (sw.depth_m / 10 + 1)).toFixed(2)
                         return (
-                          <tr key={`ns-${i}`}>
+                          <tr key={`ns-${i}`} style={{ borderTop: '2px solid #495057' }}>
                             <td className="ps-2"><i className="bi bi-repeat" style={{ color: '#6c757d', fontSize: '0.8em' }} /></td>
                             <td>{sw.depth_m} m</td>
                             <td>—</td>
