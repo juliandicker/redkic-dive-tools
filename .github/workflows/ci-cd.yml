@@ -25,6 +25,15 @@ jobs:
       - name: Run tests
         run: pytest -v
 
+      - name: Export OpenAPI schema
+        run: python -c "import json; from function_app import fastapi_app; open('openapi.json','w').write(json.dumps(fastapi_app.openapi(), indent=2))"
+
+      - name: Upload OpenAPI schema artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-schema
+          path: openapi.json
+
   infra:
     name: Deploy Infrastructure
     needs: test
