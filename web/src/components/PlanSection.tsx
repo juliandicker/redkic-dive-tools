@@ -268,12 +268,39 @@ export default function PlanSection({
                         </tr>
                       )
                     })()}
+                    {/* No-stop ascent gas switches (between OC switch and first deco stop) */}
+                    {isBailout && (() => {
+                      const firstStopDepth = decoStops[0]?.depth_m ?? 0
+                      const noStopSwitches = [...gasSwitches]
+                        .filter(sw => sw.depth_m > firstStopDepth)
+                        .sort((a, b) => b.depth_m - a.depth_m)
+                      return noStopSwitches.map((sw, i) => {
+                        const gasAtSwitch = resolveGasAtStop(sw.depth_m, gasSwitches, bailoutInitialGas ?? gas)
+                        const dens = (surfaceDensity(gasAtSwitch.o2, gasAtSwitch.he) * (sw.depth_m / 10 + 1)).toFixed(2)
+                        const densNum = parseFloat(dens)
+                        const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
+                        const ppo2 = ((gasAtSwitch.o2 / 100) * (sw.depth_m / 10 + 1)).toFixed(2)
+                        return (
+                          <tr key={`ns-${i}`}>
+                            <td className="ps-2"><i className="bi bi-repeat" style={{ color: '#6c757d', fontSize: '0.8em' }} /></td>
+                            <td>{sw.depth_m} m</td>
+                            <td>—</td>
+                            <td>—</td>
+                            <td>{ppo2}</td>
+                            <td style={densColor ? { color: densColor } : {}}>{dens}</td>
+                            <td style={{ fontSize: '0.78rem' }}>{sw.label}</td>
+                          </tr>
+                        )
+                      })
+                    })()}
                     {/* Deco stops — thick top border marks a deco gas switch above */}
                     {decoStops.map((stop, i) => {
                       const isLast = i === decoStops.length - 1
+                      const firstStopDepth = decoStops[0]?.depth_m ?? 0
                       const prevDepth = i === 0 ? Infinity : decoStops[i - 1].depth_m
                       const switchAbove = gasSwitches.some(
                         sw => sw.depth_m >= stop.depth_m && sw.depth_m < prevDepth
+                          && sw.depth_m <= firstStopDepth
                       )
                       const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, bailoutInitialGas ?? gas)
                       const dens = (surfaceDensity(gasAtStop.o2, gasAtStop.he) * (stop.depth_m / 10 + 1)).toFixed(2)
