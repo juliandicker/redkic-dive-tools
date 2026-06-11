@@ -138,14 +138,16 @@ function buildGasCard(gas) {
 
     var card = document.createElement('div');
     card.className = 'gas-card' + (gas.active ? ' gas-card-active' : '');
+    card.style.cursor = 'pointer';
+    card.onclick = function() { selectGas(gas.id); };
 
     card.innerHTML =
         '<div class="gas-card-top">' +
             '<span class="gas-card-name">' + name + '</span>' +
             '<span>' +
-                '<button class="btn-gas-action" onclick="selectGas(' + gas.id + ')" title="' + (gas.active ? 'Selected' : 'Select') + '"><i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i></button>' +
-                '<button class="btn-gas-action" onclick="editGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
-                '<button class="btn-gas-action" onclick="confirmDeleteGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
+                '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + ' btn-gas-action"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i>' +
+                '<button class="btn-gas-action" onclick="event.stopPropagation();editGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn-gas-action" onclick="event.stopPropagation();confirmDeleteGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
             '</span>' +
         '</div>' +
         '<div class="gas-bar">' +
@@ -452,14 +454,16 @@ function buildBailoutCard(gas) {
 
     var card = document.createElement('div');
     card.className = 'gas-card' + (gas.active ? ' gas-card-active' : '');
+    card.style.cursor = 'pointer';
+    card.onclick = function() { toggleBailoutGas(gas.id); };
 
     card.innerHTML =
         '<div class="gas-card-top">' +
             '<span class="gas-card-name">' + name + '</span>' +
             '<span>' +
-                '<button class="btn-gas-action" onclick="toggleBailoutGas(' + gas.id + ')" title="' + (gas.active ? 'Included' : 'Include') + '"><i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i></button>' +
-                '<button class="btn-gas-action" onclick="editBailoutGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
-                '<button class="btn-gas-action" onclick="confirmDeleteBailoutGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
+                '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + ' btn-gas-action"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i>' +
+                '<button class="btn-gas-action" onclick="event.stopPropagation();editBailoutGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
+                '<button class="btn-gas-action" onclick="event.stopPropagation();confirmDeleteBailoutGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
             '</span>' +
         '</div>' +
         '<div class="gas-bar">' +
