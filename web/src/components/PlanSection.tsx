@@ -9,6 +9,8 @@ import { Line, Bar } from 'react-chartjs-2'
 import type { DecoStop, ProfilePoint, GasSwitch, GasSupplyEntry, Warning } from '../types'
 import { surfaceDensity, gasName } from '../utils'
 
+const N2_HALF_TIMES = [5, 8, 12.5, 18.5, 27, 38.3, 54.3, 77, 109, 146, 187, 239, 305, 390, 498, 635]
+
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, BarElement,
   Title, Tooltip, Legend, Filler,
@@ -54,6 +56,8 @@ export default function PlanSection({
 
   const displaySats = (hoveredSats ?? tissueSaturations).map(s => Math.round(s * 100))
   const gfHighPct = gfHigh
+  const controlIdx = displaySats.indexOf(Math.max(...displaySats))
+  const controlHt  = N2_HALF_TIMES[controlIdx]
 
   const handleProfileHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const chart = profileRef.current
@@ -147,19 +151,23 @@ export default function PlanSection({
     animation: false,
   }
 
-  const tissueTitle = hoveredSats ? 'Tissue loading at hover' : 'Tissue loading — surface'
+  const tissueTitle = hoveredSats
+    ? `Tissue loading at hover — C${controlIdx + 1} (${controlHt} min) controlling`
+    : `Tissue loading — surface · C${controlIdx + 1} (${controlHt} min) controlling`
 
   const tissueData: ChartData<'bar'> = {
     labels: Array.from({ length: 16 }, (_, i) => `C${i + 1}`),
     datasets: [{
       label: 'Saturation %',
       data: displaySats,
-      backgroundColor: displaySats.map(s =>
-        s > 100 ? 'rgba(220,53,69,0.75)' :
-        s > gfHighPct ? 'rgba(255,140,0,0.75)' :
-        'rgba(32,150,130,0.75)'
-      ),
-      borderWidth: 0,
+      backgroundColor: displaySats.map((s, i) => {
+        const a = i === controlIdx ? 0.85 : 0.35
+        return s > 100       ? `rgba(220,53,69,${a})`  :
+               s > gfHighPct ? `rgba(255,140,0,${a})`  :
+                               `rgba(32,150,130,${a})`
+      }),
+      borderColor: displaySats.map((_, i) => i === controlIdx ? 'rgba(0,0,0,0.5)' : 'transparent'),
+      borderWidth: 1,
     }],
   }
 
