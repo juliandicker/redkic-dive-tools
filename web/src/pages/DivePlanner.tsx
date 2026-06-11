@@ -476,7 +476,7 @@ export default function DivePlanner() {
 
       <div className="container pb-5">
         {/* Top row: 3 equal columns */}
-        <div className="row g-3 mb-4">
+        <div className="row g-3 mb-4 no-print">
           {/* Diluent gas library */}
           <div className="col-md-4">
             <div className="card h-100">
@@ -573,6 +573,35 @@ export default function DivePlanner() {
 
         {result && activeGas && (
           <>
+            {/* Print-only header */}
+            <div className="print-only print-header mb-4">
+              <div className="d-flex align-items-center gap-3 mb-1">
+                <img src="/redkic_diving_tools_logo.png" alt="logo" style={{ height: 36 }} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>Dive Decompression Plan</div>
+                  <div style={{ fontSize: '0.78rem', color: '#555' }}>Generated {new Date().toLocaleString()}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.82rem', marginTop: '0.4rem' }}>
+                <strong>Diluent:</strong> {gasName(activeGas.o2, activeGas.he)} &nbsp;·&nbsp;
+                <strong>Setpoint:</strong> {activeGas.setpoint} bar &nbsp;·&nbsp;
+                <strong>Depth:</strong> {depth} m &nbsp;·&nbsp;
+                <strong>Bottom time:</strong> {btActual} min &nbsp;·&nbsp;
+                <strong>GF:</strong> {settings.gfLow}/{settings.gfHigh}
+                {result.bailout && <> &nbsp;·&nbsp; <strong>Bailout GF:</strong> {settings.bailoutGfLow}/{settings.bailoutGfHigh}</>}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#c00', marginTop: '0.3rem', fontStyle: 'italic' }}>
+                Not for operational use. Educational planning tool only.
+              </div>
+            </div>
+
+            {/* Print button */}
+            <div className="no-print mb-3 text-end">
+              <button className="btn btn-sm btn-outline-secondary" onClick={() => window.print()}>
+                <i className="bi bi-printer me-1" />Print / Save as PDF
+              </button>
+            </div>
+
             <PlanSection
               title="Decompression Schedule"
               decoStops={result.stops}
