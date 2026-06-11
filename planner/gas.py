@@ -16,9 +16,15 @@ class OpenCircuitGas:
 
     @property
     def label(self):
-        if self.fhe == 0.0:
-            return f"{round(self.fo2 * 100)}/{round(self.fn2 * 100)}"
-        return f"{round(self.fo2 * 100)}/{round(self.fhe * 100)}"
+        o2 = round(self.fo2 * 100)
+        he = round(self.fhe * 100)
+        if he > 0:
+            return f'Tx{o2}/{he}'
+        if o2 == 100:
+            return 'O₂'
+        if o2 == 21:
+            return 'Air'
+        return f'N{o2}'
 
     def pp_o2(self, p_abs_bar: float) -> float:
         return max(0.0, p_abs_bar - WATER_VAPOUR_BAR) * self.fo2

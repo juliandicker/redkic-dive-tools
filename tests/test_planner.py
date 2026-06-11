@@ -165,11 +165,11 @@ class TestOpenCircuitGas:
 
     def test_label_nitrox(self):
         gas = OpenCircuitGas(50, 0, 22)
-        assert gas.label == '50/50'
+        assert gas.label == 'N50'
 
     def test_label_trimix(self):
         gas = OpenCircuitGas(21, 25, 57)
-        assert gas.label == '21/25'
+        assert gas.label == 'Tx21/25'
 
 
 class TestPlanCcrDiveRegression:

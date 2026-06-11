@@ -237,17 +237,25 @@ export default function PlanSection({
                       <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
                     </tr>
                     {/* OC bailout switch row — thick top border marks the CCR→OC transition */}
-                    {isBailout && (
-                      <tr style={{ borderTop: '2px solid #495057' }}>
-                        <td className="ps-2"><i className="bi bi-lightning-charge-fill" style={{ color: '#dc3545' }} /></td>
-                        <td>{depth} m</td>
-                        <td>—</td>
-                        <td>{Math.round(bt)}</td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td style={{ fontSize: '0.78rem' }}>{bailoutInitialGas ? gasName(bailoutInitialGas.o2, bailoutInitialGas.he) : '—'}</td>
-                      </tr>
-                    )}
+                    {isBailout && (() => {
+                      const bigO2   = bailoutInitialGas?.o2 ?? gO2
+                      const bigHe   = bailoutInitialGas?.he ?? gHe
+                      const bigPpO2 = ((bigO2 / 100) * (depth / 10 + 1)).toFixed(2)
+                      const bigDens = (surfaceDensity(bigO2, bigHe) * (depth / 10 + 1)).toFixed(2)
+                      const bigDensNum = parseFloat(bigDens)
+                      const bigDensColor = bigDensNum > 6.3 ? '#dc3545' : bigDensNum > 5.2 ? '#e07000' : ''
+                      return (
+                        <tr style={{ borderTop: '2px solid #495057' }}>
+                          <td className="ps-2"><i className="bi bi-lightning-charge-fill" style={{ color: '#dc3545' }} /></td>
+                          <td>{depth} m</td>
+                          <td>—</td>
+                          <td>{Math.round(bt)}</td>
+                          <td>{bigPpO2}</td>
+                          <td style={bigDensColor ? { color: bigDensColor } : {}}>{bigDens}</td>
+                          <td style={{ fontSize: '0.78rem' }}>{gasName(bigO2, bigHe)}</td>
+                        </tr>
+                      )
+                    })()}
                     {/* Deco stops — thick top border marks a deco gas switch above */}
                     {decoStops.map((stop, i) => {
                       const isLast = i === decoStops.length - 1
