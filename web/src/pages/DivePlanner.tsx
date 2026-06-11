@@ -459,6 +459,11 @@ export default function DivePlanner() {
                       onChange={e => setBt(parseInt(e.target.value) || 0)} />
                     <span className="input-group-text">min</span>
                   </div>
+                  {result && result.bottom_time_actual < bt && (
+                    <div className="small text-warning-emphasis" style={{ fontSize: '0.78rem', marginTop: '-0.1rem' }}>
+                      <i className="bi bi-scissors me-1" />Shortened to {result.bottom_time_actual} min — insufficient bailout gas
+                    </div>
+                  )}
                   <button className="btn btn-apply w-100 mt-1" onClick={calculate} disabled={!activeGas || loading}>
                     Calculate Decompression
                   </button>

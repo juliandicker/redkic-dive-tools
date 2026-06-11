@@ -194,7 +194,7 @@ export default function PlanSection({
   return (
     <div>
       {warnings.map((w, i) => (
-        <div key={i} className={`alert alert-${w.level === 'error' ? 'danger' : 'warning'} rounded-3 density-warning mb-3`}>
+        <div key={i} className={`alert alert-${w.level === 'warning' ? 'warning' : 'danger'} rounded-3 density-warning mb-3`}>
           {w.message}
         </div>
       ))}
