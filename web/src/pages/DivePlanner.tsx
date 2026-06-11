@@ -9,6 +9,29 @@ import { load, save } from '../storage'
 import { densityLimitDepth, bestMix, bailoutAutoMod, calcMod, gasName } from '../utils'
 import type { GasEntry, BailoutEntry, PlannerSettings, SavedPlan, DivePlannerResponse } from '../types'
 
+// ── URL share helpers ──────────────────────────────────────────────────────────
+
+interface SharedPayload {
+  d: number; bt: number
+  gfl: number; gfh: number
+  bgfl: number; bgfh: number
+  dr: number; ard: number; ars: number
+  ls: number; cns: number
+  sacb: number; sacd: number; res: number
+  g: { o2: number; he: number; sp: number }
+  b: { o2: number; he: number; m: number; l: number; bar: number; pp: number }[]
+}
+
+function encodePlan(payload: object): string {
+  return btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+function decodePlan(s: string): SharedPayload | null {
+  try { return JSON.parse(atob(s.replace(/-/g, '+').replace(/_/g, '/'))) as SharedPayload }
+  catch { return null }
+}
+
 // ── Default state ──────────────────────────────────────────────────────────────
 
 const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
@@ -117,6 +140,10 @@ export default function DivePlanner() {
   const [savePlanModal, setSavePlanModal] = useState<SavePlanModal>({ open: false, name: '', pending: null })
   const uploadRef = useRef<HTMLInputElement>(null)
 
+  const [sharedPayload, setSharedPayload] = useState<SharedPayload | null>(null)
+  const [usingSharedSettings, setUsingSharedSettings] = useState(false)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+
   // Persist gas library
   useEffect(() => {
     save('planner_gases', { gases: gasLib, nextId: gasNextId })
@@ -141,15 +168,51 @@ export default function DivePlanner() {
   useEffect(() => { save('planner_depth', depth) }, [depth])
   useEffect(() => { save('planner_bt', bt) }, [bt])
 
+  // Parse URL share link on mount — sets depth/bt/gas and shared settings ephemerally
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('plan')
+    if (!raw) return
+    const p = decodePlan(raw)
+    if (!p || typeof p.d !== 'number') return
+    setDepth(p.d)
+    setBt(p.bt)
+    setSharedPayload(p)
+    setUsingSharedSettings(true)
+    const g = p.g
+    const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.sp)
+    if (match) {
+      setGasLib(prev => prev.map(x => ({ ...x, active: x.id === match.id })))
+    } else {
+      const newId = gasNextId
+      setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id: newId, o2: g.o2, he: g.he, setpoint: g.sp, active: true }])
+      setGasNextId(newId + 1)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const activeGas = useMemo(() => gasLib.find(g => g.active) ?? null, [gasLib])
   const activeBailout = useMemo(() => bailoutLib.filter(g => g.active), [bailoutLib])
 
-  // Gas used at bailout depth — lowest-MOD active bailout gas whose MOD covers the depth
+  const effectiveSettings: PlannerSettings = (usingSharedSettings && sharedPayload) ? {
+    gfLow: sharedPayload.gfl, gfHigh: sharedPayload.gfh,
+    bailoutGfLow: sharedPayload.bgfl, bailoutGfHigh: sharedPayload.bgfh,
+    descRate: sharedPayload.dr, ascRateDeep: sharedPayload.ard, ascRateShallow: sharedPayload.ars,
+    lastStopM: sharedPayload.ls, cnsWarnPct: sharedPayload.cns,
+    sacBottom: sharedPayload.sacb, sacDeco: sharedPayload.sacd, reserveBar: sharedPayload.res,
+  } : settings
+
+  const effectiveBailout: BailoutEntry[] = (usingSharedSettings && sharedPayload && sharedPayload.b.length > 0)
+    ? sharedPayload.b.map((g, i) => ({
+        id: -(i + 1), o2: g.o2, he: g.he, mod_m: g.m,
+        cyl_l: g.l, cyl_bar: g.bar, ppo2_limit: g.pp, active: true,
+      }))
+    : activeBailout
+
+  // Gas used at bailout depth — lowest-MOD bailout gas whose MOD covers the depth
   const bailoutInitialGas = useMemo(() => {
-    if (activeBailout.length === 0) return null
-    const sorted = [...activeBailout].sort((a, b) => a.mod_m - b.mod_m)
+    if (effectiveBailout.length === 0) return null
+    const sorted = [...effectiveBailout].sort((a, b) => a.mod_m - b.mod_m)
     return (sorted.find(g => depth <= g.mod_m) ?? sorted[sorted.length - 1])
-  }, [activeBailout, depth])
+  }, [effectiveBailout, depth])
 
   // Shared X axis max so CCR and bailout charts align
   const btActual = result?.bottom_time_actual ?? bt
@@ -179,23 +242,23 @@ export default function DivePlanner() {
         setpoint:             activeGas.setpoint,
         depth_m:              depth,
         bottom_time_min:      bt,
-        gf_low:               settings.gfLow,
-        gf_high:              settings.gfHigh,
-        desc_rate_mpm:        settings.descRate,
-        asc_rate_deep_mpm:    settings.ascRateDeep,
-        asc_rate_shallow_mpm: settings.ascRateShallow,
-        last_stop_m:          settings.lastStopM,
-        cns_warn_pct:         settings.cnsWarnPct,
-        bailout_gases:        activeBailout.map(g => ({
+        gf_low:               effectiveSettings.gfLow,
+        gf_high:              effectiveSettings.gfHigh,
+        desc_rate_mpm:        effectiveSettings.descRate,
+        asc_rate_deep_mpm:    effectiveSettings.ascRateDeep,
+        asc_rate_shallow_mpm: effectiveSettings.ascRateShallow,
+        last_stop_m:          effectiveSettings.lastStopM,
+        cns_warn_pct:         effectiveSettings.cnsWarnPct,
+        bailout_gases:        effectiveBailout.map(g => ({
           o2: g.o2, he: g.he, mod_m: g.mod_m,
           ppo2_limit: g.ppo2_limit ?? 1.4,
           cyl_l: g.cyl_l || null, cyl_bar: g.cyl_bar || null,
         })),
-        bailout_gf_low:       settings.bailoutGfLow,
-        bailout_gf_high:      settings.bailoutGfHigh,
-        sac_bottom_lpm:       settings.sacBottom,
-        sac_deco_lpm:         settings.sacDeco,
-        reserve_bar:          settings.reserveBar,
+        bailout_gf_low:       effectiveSettings.bailoutGfLow,
+        bailout_gf_high:      effectiveSettings.bailoutGfHigh,
+        sac_bottom_lpm:       effectiveSettings.sacBottom,
+        sac_deco_lpm:         effectiveSettings.sacDeco,
+        reserve_bar:          effectiveSettings.reserveBar,
       })
       setResult(data)
     } catch (e) {
@@ -381,6 +444,22 @@ export default function DivePlanner() {
     const plan = savedPlans.find(p => p.id === id)
     if (!plan || !window.confirm(`Remove "${plan.name}"?`)) return
     setSavedPlans(prev => prev.filter(p => p.id !== id))
+  }
+
+  function buildSharePayload(plan: SavedPlan): object {
+    return {
+      d: plan.depth_m, bt: plan.bottom_time_min,
+      gfl: settings.gfLow, gfh: settings.gfHigh,
+      bgfl: settings.bailoutGfLow, bgfh: settings.bailoutGfHigh,
+      dr: settings.descRate, ard: settings.ascRateDeep, ars: settings.ascRateShallow,
+      ls: settings.lastStopM, cns: settings.cnsWarnPct,
+      sacb: settings.sacBottom, sacd: settings.sacDeco, res: settings.reserveBar,
+      g: { o2: plan.gas.o2, he: plan.gas.he, sp: plan.gas.setpoint },
+      b: activeBailout.map(g => ({
+        o2: g.o2, he: g.he, m: g.mod_m,
+        l: g.cyl_l, bar: g.cyl_bar, pp: g.ppo2_limit ?? 1.4,
+      })),
+    }
   }
 
   function downloadPlan(id: number) {
@@ -579,6 +658,19 @@ export default function DivePlanner() {
         )}
         {error && <div className="alert alert-danger rounded-3">{error}</div>}
 
+        {sharedPayload && (
+          <div className="alert alert-info d-flex align-items-center justify-content-between py-2 mb-3 no-print" style={{ fontSize: '0.82rem' }}>
+            <span>
+              <i className="bi bi-share me-1" />
+              {usingSharedSettings ? "Viewing with sharer's settings and bailout gases" : "Viewing with your own settings"}
+            </span>
+            <button className="btn btn-sm btn-outline-secondary ms-3" style={{ fontSize: '0.75rem' }}
+              onClick={() => { setUsingSharedSettings(v => !v); setResult(null) }}>
+              {usingSharedSettings ? 'Use my settings' : 'Restore shared settings'}
+            </button>
+          </div>
+        )}
+
         {result && activeGas && (
           <>
             {/* Print-only header */}
@@ -595,8 +687,8 @@ export default function DivePlanner() {
                 <strong>Setpoint:</strong> {activeGas.setpoint} bar &nbsp;·&nbsp;
                 <strong>Depth:</strong> {depth} m &nbsp;·&nbsp;
                 <strong>Bottom time:</strong> {btActual} min &nbsp;·&nbsp;
-                <strong>GF:</strong> {settings.gfLow}/{settings.gfHigh}
-                {result.bailout && <> &nbsp;·&nbsp; <strong>Bailout GF:</strong> {settings.bailoutGfLow}/{settings.bailoutGfHigh}</>}
+                <strong>GF:</strong> {effectiveSettings.gfLow}/{effectiveSettings.gfHigh}
+                {result.bailout && <> &nbsp;·&nbsp; <strong>Bailout GF:</strong> {effectiveSettings.bailoutGfLow}/{effectiveSettings.bailoutGfHigh}</>}
               </div>
               <div style={{ fontSize: '0.72rem', color: '#c00', marginTop: '0.3rem', fontStyle: 'italic' }}>
                 Not for operational use. Educational planning tool only.
@@ -615,11 +707,11 @@ export default function DivePlanner() {
               gasSwitches={[]}
               gasSupply={null}
               warnings={result.warnings}
-              gfHigh={settings.gfHigh}
+              gfHigh={effectiveSettings.gfHigh}
               diluent={activeGas}
               depthM={depth}
               btMin={btActual}
-              descRate={settings.descRate}
+              descRate={effectiveSettings.descRate}
               xAxisMax={sharedXMax}
             />
 
@@ -637,11 +729,11 @@ export default function DivePlanner() {
                   gasSwitches={result.bailout.gas_switches}
                   gasSupply={result.bailout.gas_supply}
                   warnings={[]}
-                  gfHigh={settings.bailoutGfHigh}
+                  gfHigh={effectiveSettings.bailoutGfHigh}
                   diluent={activeGas}
                   depthM={depth}
                   btMin={btActual}
-                  descRate={settings.descRate}
+                  descRate={effectiveSettings.descRate}
                   isBailout
                   bailoutInitialGas={bailoutInitialGas}
                   xAxisMax={sharedXMax}
@@ -714,6 +806,16 @@ export default function DivePlanner() {
                 </div>
                 <div className="plan-card-actions">
                   <button className="btn btn-sm btn-apply flex-grow-1" onClick={() => loadPlan(plan.id)}>Load</button>
+                  <button className="btn btn-sm btn-outline-secondary" title="Copy share link"
+                    onClick={() => {
+                      const payload = buildSharePayload(plan)
+                      const url = `${window.location.origin}/planner?plan=${encodePlan(payload)}`
+                      navigator.clipboard.writeText(url)
+                      setCopiedId(plan.id)
+                      setTimeout(() => setCopiedId(null), 2000)
+                    }}>
+                    <i className={`bi bi-${copiedId === plan.id ? 'check-lg' : 'share'}`} />
+                  </button>
                   <button className="btn btn-sm btn-outline-secondary" title="Download scenario" onClick={() => downloadPlan(plan.id)}>
                     <i className="bi bi-download" />
                   </button>
