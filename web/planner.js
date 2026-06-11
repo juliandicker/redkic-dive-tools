@@ -449,8 +449,10 @@ function buildBailoutCard(gas) {
     var o2 = gas.o2, he = gas.he;
     var n2 = Math.max(0, 100 - o2 - he);
     var name = gasName(o2, he);
-    var limRec   = densityLimitDepth(o2, he, 5.2);
-    var limUpper = densityLimitDepth(o2, he, 6.3);
+    var limRec = densityLimitDepth(o2, he, 5.2);
+    var bindingInfo = gas.mod_m <= limRec
+        ? 'MOD ' + gas.mod_m + ' m'
+        : 'Density max ' + limRec + ' m';
 
     var card = document.createElement('div');
     card.className = 'gas-card' + (gas.active ? ' gas-card-active' : '');
@@ -471,7 +473,7 @@ function buildBailoutCard(gas) {
             '<div class="gas-bar-he" style="width:' + he + '%"></div>' +
             '<div class="gas-bar-n2" style="width:' + n2 + '%"></div>' +
         '</div>' +
-        '<div class="gas-card-info">' + limRec + ' m – ' + limUpper + ' m · MOD ' + gas.mod_m + ' m</div>';
+        '<div class="gas-card-info">' + bindingInfo + '</div>';
 
     return card;
 }
