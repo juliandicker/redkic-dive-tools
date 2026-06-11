@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Offcanvas from 'react-bootstrap/Offcanvas'
 import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
@@ -115,8 +115,6 @@ export default function DivePlanner() {
   const [gasModal, setGasModal] = useState<GasModalState>(INIT_MODAL)
   const [savePlanModal, setSavePlanModal] = useState<SavePlanModal>({ open: false, name: '', pending: null })
 
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   // Persist gas library
   useEffect(() => {
     save('planner_gases', { gases: gasLib, nextId: gasNextId })
@@ -140,7 +138,7 @@ export default function DivePlanner() {
   const activeGas = useMemo(() => gasLib.find(g => g.active) ?? null, [gasLib])
   const activeBailout = useMemo(() => bailoutLib.filter(g => g.active), [bailoutLib])
 
-  const calculate = useCallback(async () => {
+  async function calculate() {
     if (!activeGas) return
     setError('')
     setLoading(true)
@@ -175,14 +173,7 @@ export default function DivePlanner() {
     } finally {
       setLoading(false)
     }
-  }, [activeGas, depth, bt, settings, activeBailout])
-
-  useEffect(() => {
-    if (!activeGas) return
-    if (debounce.current) clearTimeout(debounce.current)
-    debounce.current = setTimeout(calculate, 80)
-    return () => { if (debounce.current) clearTimeout(debounce.current) }
-  }, [calculate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // ── Gas library actions ──────────────────────────────────────────────────────
 
