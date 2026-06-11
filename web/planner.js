@@ -508,6 +508,7 @@ function calculate() {
         bailout_gf_high:      bailoutGfHigh,
         sac_bottom_lpm:       parseFloat(document.getElementById('sac_bottom').value) || 20,
         sac_deco_lpm:         parseFloat(document.getElementById('sac_deco').value) || 15,
+        reserve_bar:          parseFloat(document.getElementById('reserve_bar').value) || 50,
     });
 
     var h   = window.location.hostname;
@@ -1337,12 +1338,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (savedLastStopM)      document.getElementById('last_stop_m').value      = savedLastStopM;
     var savedCnsWarnPct = getCookie('cns_warn_pct');
     if (savedCnsWarnPct) document.getElementById('cns_warn_pct').value = savedCnsWarnPct;
-    var savedSacBottom = getCookie('sac_bottom');
-    var savedSacDeco   = getCookie('sac_deco');
-    if (savedSacBottom) document.getElementById('sac_bottom').value = savedSacBottom;
-    if (savedSacDeco)   document.getElementById('sac_deco').value   = savedSacDeco;
+    var savedSacBottom  = getCookie('sac_bottom');
+    var savedSacDeco    = getCookie('sac_deco');
+    var savedReserveBar = getCookie('reserve_bar');
+    if (savedSacBottom)  document.getElementById('sac_bottom').value  = savedSacBottom;
+    if (savedSacDeco)    document.getElementById('sac_deco').value    = savedSacDeco;
+    if (savedReserveBar) document.getElementById('reserve_bar').value = savedReserveBar;
 
-    ['gf_low', 'gf_high', 'bailout_gf_low', 'bailout_gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct', 'sac_bottom', 'sac_deco'].forEach(function (id) {
+    ['gf_low', 'gf_high', 'bailout_gf_low', 'bailout_gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct', 'sac_bottom', 'sac_deco', 'reserve_bar'].forEach(function (id) {
         document.getElementById(id).addEventListener('change', function () {
             setCookie(id, this.value);
         });

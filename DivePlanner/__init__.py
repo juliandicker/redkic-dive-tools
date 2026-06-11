@@ -141,6 +141,11 @@ def _max_bottom_time_within_gas_supply(
         return requested_bt, False
 
     lo = depth_m / desc_rate_mpm + 1.0
+
+    # If even the minimum viable bottom time is infeasible, no solution exists
+    if not fits(lo):
+        return None, True
+
     hi = requested_bt
     for _ in range(12):
         mid = (lo + hi) / 2.0
@@ -209,8 +214,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     sac_bottom_lpm = float(body.get('sac_bottom_lpm', 20.0))
     sac_deco_lpm   = float(body.get('sac_deco_lpm',   15.0))
+    reserve_bar    = float(body.get('reserve_bar', 50.0))
     if not (1 <= sac_bottom_lpm <= 100) or not (1 <= sac_deco_lpm <= 100):
         return func.HttpResponse("SAC rates must be between 1 and 100 L/min.", status_code=400)
+    if not (0 <= reserve_bar <= 300):
+        return func.HttpResponse("reserve_bar must be between 0 and 300.", status_code=400)
 
     # Validate bailout gases
     oc_gases = []
@@ -237,17 +245,19 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     # Check gas supply limits before planning — may shorten bottom_time_min
     bottom_time_actual = bottom_time_min
     bottom_time_shortened = False
+    bailout_infeasible = False
+    bailout_infeasible_msg = None
     if oc_gases:
         sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
         sorted_volumes = sorted(
             zip(oc_gases, oc_gas_volumes), key=lambda x: x[0].mod_m
         )
         available_L = [
-            (v['cyl_l'] * v['cyl_bar']) if (v['cyl_l'] and v['cyl_bar']) else math.inf
+            (v['cyl_l'] * max(0.0, v['cyl_bar'] - reserve_bar)) if (v['cyl_l'] and v['cyl_bar']) else math.inf
             for _, v in sorted_volumes
         ]
         if any(a < math.inf for a in available_L):
-            bottom_time_actual, bottom_time_shortened = _max_bottom_time_within_gas_supply(
+            result_bt, shortened = _max_bottom_time_within_gas_supply(
                 ccr_gas=CCRGas(diluent_o2, diluent_he, setpoint),
                 depth_m=depth_m,
                 requested_bt=bottom_time_min,
@@ -263,6 +273,27 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 sac_bottom=sac_bottom_lpm,
                 sac_deco=sac_deco_lpm,
             )
+            if result_bt is None:
+                bailout_infeasible = True
+                empty_gases = [
+                    _gas_label(g) for g, v in sorted_volumes
+                    if v['cyl_l'] and v['cyl_bar'] and v['cyl_l'] * max(0.0, v['cyl_bar'] - reserve_bar) == 0
+                ]
+                if empty_gases:
+                    bailout_infeasible_msg = (
+                        f"Bailout gas supply error: {', '.join(empty_gases)} "
+                        f"{'has' if len(empty_gases) == 1 else 'have'} no usable gas after "
+                        f"deducting the {reserve_bar:.0f} bar reserve. "
+                        f"Increase cylinder pressure or reduce the tank reserve setting."
+                    )
+                else:
+                    bailout_infeasible_msg = (
+                        f"Bailout gas supply is insufficient even for the minimum possible dive time "
+                        f"at {depth_m:.0f} m. Increase cylinder sizes, pressure, or reduce the "
+                        f"{reserve_bar:.0f} bar reserve."
+                    )
+            else:
+                bottom_time_actual, bottom_time_shortened = result_bt, shortened
 
     try:
         gas = CCRGas(diluent_o2, diluent_he, setpoint)
@@ -315,7 +346,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             ),
         })
 
-    if bottom_time_shortened:
+    if bailout_infeasible:
+        warnings.append({'level': 'danger', 'message': bailout_infeasible_msg})
+    elif bottom_time_shortened:
         warnings.append({
             'level': 'warning',
             'message': (
@@ -387,7 +420,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     # Bailout plan
     bailout_response = None
-    if oc_gases:
+    if oc_gases and not bailout_infeasible:
         try:
             bailout = plan_oc_bailout(
                 ccr_gas=gas,
@@ -420,8 +453,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         'consumed_L': consumed[i],
                     }
                     if v['cyl_l'] and v['cyl_bar']:
-                        entry['available_L'] = round(v['cyl_l'] * v['cyl_bar'])
-                        entry['pct'] = round(consumed[i] / entry['available_L'] * 100)
+                        usable = v['cyl_l'] * max(0.0, v['cyl_bar'] - reserve_bar)
+                        entry['available_L'] = round(usable)
+                        entry['pct'] = round(consumed[i] / usable * 100) if usable > 0 else 100
                     gas_supply.append(entry)
 
             bailout_response = {
