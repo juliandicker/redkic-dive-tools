@@ -28,12 +28,18 @@ GasBlender/
 │   ├── main.bicep          # Subscription-scoped Bicep — resource group + all resources
 │   ├── main.bicepparam
 │   └── modules/            # storage, functionApp, staticWebApp, swa-domain, dns
-├── web/
-│   ├── index.html          # Gas Blender UI
-│   ├── app.js
-│   ├── planner.html        # Dive Planner UI
-│   ├── planner.js
-│   └── styles.css
+├── web/                    # React/Vite frontend (TypeScript)
+│   ├── src/
+│   │   ├── pages/          # GasBlender.tsx, DivePlanner.tsx
+│   │   ├── components/     # Header, GasBar, PlanSection (charts + schedule)
+│   │   ├── api.ts          # API client — auto-detects local vs prod URL
+│   │   ├── utils.ts        # Gas calculations (density, best mix, naming)
+│   │   └── types.ts        # TypeScript types for API and app state
+│   ├── public/
+│   │   └── staticwebapp.config.json  # SPA routing fallback
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts
 ├── gas_blender.py          # Core blending logic (single source of truth)
 ├── host.json
 ├── requirements.txt
@@ -109,8 +115,8 @@ Requires [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/az
 
 ```bash
 pip install -r requirements.txt
-func host start                              # API on :7071
-python -m http.server 8080 --directory web  # frontend on :8080
+func host start          # API on :7071
+cd web && npm run dev    # Vite dev server on :8080
 ```
 
 ### Tests
@@ -140,4 +146,5 @@ If the helium bank runs short the calculator adds a second helium step using a f
 - Application Insights + Log Analytics
 - Bicep (IaC — subscription-scoped)
 - GitHub Actions + OIDC (CI/CD — no stored credentials)
-- Bootstrap 5.3 · Chart.js 4.4 (frontend)
+- React 18 · TypeScript · Vite 5 (frontend)
+- Bootstrap 5.3 · react-bootstrap · Chart.js 4.4 · react-chartjs-2 (frontend UI)

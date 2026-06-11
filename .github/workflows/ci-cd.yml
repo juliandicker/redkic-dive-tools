@@ -100,6 +100,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        working-directory: web
+        run: npm ci && npm run build
+
       - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -120,5 +128,5 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ steps.swa_token.outputs.token }}
           action: upload
-          app_location: web
+          app_location: web/dist
           skip_app_build: true

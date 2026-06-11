@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Two tools for technical diving. Python Azure Functions API (FastAPI + ASGI) + static HTML frontend hosted on Azure Static Web Apps (Free tier).
+Two tools for technical diving. Python Azure Functions API (FastAPI + ASGI) + React/Vite frontend hosted on Azure Static Web Apps (Free tier).
 
 - **Gas Blender** — fill-sequence calculator: He → O₂ → air top-up steps
 - **Dive Planner** — Bühlmann ZHL-16C CCR decompression planner with GF Low/High, gas density analysis, tissue saturation tracking, OTU/CNS
@@ -19,12 +19,30 @@ GasBlender/
 │   └── gas.py                # CCRGas: pp_n2 / pp_he respecting setpoint
 ├── tests/                    # Unit tests (pytest) — 213 tests total
 ├── gas_blender.py            # Core blending logic — single source of truth
-├── web/
-│   ├── index.html            # Gas Blender UI
-│   ├── app.js
-│   ├── planner.html          # Dive Planner UI (Chart.js, Bootstrap 5)
-│   ├── planner.js
-│   └── styles.css
+├── web/                      # React/Vite frontend (TypeScript)
+│   ├── src/
+│   │   ├── main.tsx          # React entry point
+│   │   ├── App.tsx           # React Router — / and /planner
+│   │   ├── styles.css        # Global CSS (CSS variables, shared components)
+│   │   ├── types.ts          # TypeScript types for API and app state
+│   │   ├── api.ts            # API client (auto-detects local vs prod URL)
+│   │   ├── utils.ts          # Gas calculations (density, best mix, gas naming)
+│   │   ├── storage.ts        # localStorage helpers
+│   │   ├── components/
+│   │   │   ├── Header.tsx    # App header with nav offcanvas
+│   │   │   ├── GasBar.tsx    # Gas composition bar component
+│   │   │   └── PlanSection.tsx # Profile+tissue charts, schedule table, metrics
+│   │   └── pages/
+│   │       ├── GasBlender.tsx  # Gas Blender page (/)
+│   │       └── DivePlanner.tsx # Dive Planner page (/planner)
+│   ├── public/
+│   │   ├── diver.jpg
+│   │   ├── redkic_diving_tools_logo.png
+│   │   └── staticwebapp.config.json  # SPA routing fallback
+│   ├── index.html            # Vite HTML entry
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tsconfig.json
 ├── host.json                 # Azure Functions runtime config (routePrefix: "")
 ├── requirements.txt          # Pinned dependencies
 ├── .funcignore               # Excludes tests/, web/, README.md from deployment
@@ -47,13 +65,13 @@ GasBlender/
 - Node/npm for Azurite (`npm install -g azurite`)
 
 ### Start everything
-Press **F5** in VS Code — starts the Function host (port 7071) and HTTP server for the frontend (port 8080) in parallel.
+Press **F5** in VS Code — starts the Function host (port 7071) and Vite dev server (port 8080) in parallel.
 
 Or manually:
 ```bash
 azurite --location .azurite          # local storage emulator
 func host start                       # Azure Function on :7071
-python -m http.server 8080 --directory web   # frontend on :8080
+cd web && npm run dev                 # Vite dev server on :8080
 ```
 
 ### CORS
@@ -71,7 +89,8 @@ pytest tests/ -v
 The following are already in the allowlists (`.claude/settings.json` and `.claude/settings.local.json`) — no need to ask before running these:
 
 - **Tests**: `.venv\Scripts\pytest tests/ -v`, `.venv\Scripts\pytest tests/ -q`, `python -m pytest tests/`
-- **Dev server**: `func host start`, `python -m http.server 8080 --directory web`, `azurite`
+- **Dev server**: `func host start`, `cd web && npm run dev`, `azurite`
+- **Frontend build**: `cd web && npm ci`, `cd web && npm run build`
 - **Dependencies**: `pip install -r requirements.txt`, `pip install -r requirements-dev.txt`, `pip install *`
 - **Azure CLI**: `az bicep *`, `az deployment *`
 - **Git**: `git add *`, `git commit`, `git push`, `git rm`, `git mv`
@@ -100,7 +119,7 @@ Push to `main` — GitHub Actions handles everything in order:
 
 CI/CD uses OIDC federated identity (no stored secrets beyond `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
 
-`app.js` auto-detects local vs production based on hostname — no changes needed between environments.
+`api.ts` auto-detects local vs production based on `window.location.hostname` — no changes needed between environments. The CI/CD pipeline runs `npm ci && npm run build` in `web/` and deploys `web/dist/` to Azure Static Web Apps.
 
 To test Bicep changes locally before pushing:
 ```bash
