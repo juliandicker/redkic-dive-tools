@@ -13,10 +13,10 @@ import type { GasEntry, BailoutEntry, PlannerSettings, SavedPlan, DivePlannerRes
 
 const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 21, he: 0,  setpoint: 1.3, active: false },
-  { o2: 10, he: 70, setpoint: 1.3, active: true },
-  { o2: 12, he: 60, setpoint: 1.3, active: false },
-  { o2: 15, he: 55, setpoint: 1.3, active: false },
-  { o2: 18, he: 45, setpoint: 1.3, active: false },
+  { o2: 12, he: 75, setpoint: 1.3, active: false },
+  { o2: 14, he: 70, setpoint: 1.3, active: false },
+  { o2: 19, he: 55, setpoint: 1.3, active: false },
+  { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
 const DEFAULT_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
   { o2: 100, he: 0,  mod_m: 6,  cyl_l: 11, cyl_bar: 210, active: false },
@@ -359,6 +359,21 @@ export default function DivePlanner() {
     setSavedPlansOpen(false)
   }
 
+  function resetToDefaults() {
+    if (!window.confirm('Reset everything to factory defaults?\n\nThis will clear all your gases, bailout gases, saved plans, and settings. This cannot be undone.')) return
+    setGasLib(makeGasLibrary())
+    setGasNextId(DEFAULT_GASES.length + 1)
+    setBailoutLib(makeBailoutLibrary())
+    setBailoutNextId(DEFAULT_BAILOUT.length + 1)
+    setSettings(DEFAULT_SETTINGS)
+    setSavedPlans(makeExamplePlans())
+    setPlanNextId(EXAMPLE_PLANS.length + 1)
+    setDepth(40)
+    setBt(25)
+    setResult(null)
+    setSettingsOpen(false)
+  }
+
   function deletePlan(id: number) {
     const plan = savedPlans.find(p => p.id === id)
     if (!plan || !window.confirm(`Remove "${plan.name}"?`)) return
@@ -623,6 +638,10 @@ export default function DivePlanner() {
             Settings are saved automatically.
           </p>
           <SettingsBody settings={settings} setSettings={setSettings} />
+          <hr className="mt-4" />
+          <button className="btn btn-sm btn-outline-danger w-100" onClick={resetToDefaults}>
+            <i className="bi bi-arrow-counterclockwise me-1" />Reset to factory defaults
+          </button>
         </Offcanvas.Body>
       </Offcanvas>
 
