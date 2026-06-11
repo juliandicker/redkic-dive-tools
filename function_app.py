@@ -544,7 +544,7 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
             exceeded_limit=density_gl > 6.3,
         ),
         profile_points=[
-            ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'])
+            ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'], inert=pp.get('inert', []))
             for pp in profile.profile_points
         ],
         tissue_saturations=profile.tissue_saturations,
