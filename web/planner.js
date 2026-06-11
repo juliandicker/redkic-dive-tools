@@ -143,23 +143,17 @@ function buildGasCard(gas) {
         '<div class="gas-card-top">' +
             '<span class="gas-card-name">' + name + '</span>' +
             '<span>' +
+                '<button class="btn-gas-action" onclick="selectGas(' + gas.id + ')" title="' + (gas.active ? 'Selected' : 'Select') + '"><i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i></button>' +
                 '<button class="btn-gas-action" onclick="editGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
                 '<button class="btn-gas-action" onclick="confirmDeleteGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
             '</span>' +
         '</div>' +
-        '<div class="gas-card-meta">O₂ ' + o2 + '% · He ' + he + '% · N₂ ' + n2 + '% · SP ' + gas.setpoint + ' bar</div>' +
-        '<div class="gas-bar" style="margin-top:0.15rem;">' +
+        '<div class="gas-bar">' +
             '<div class="gas-bar-o2" style="width:' + o2 + '%"></div>' +
             '<div class="gas-bar-he" style="width:' + he + '%"></div>' +
             '<div class="gas-bar-n2" style="width:' + n2 + '%"></div>' +
         '</div>' +
-        '<div class="gas-card-footer">' +
-            '<span class="gas-depth-badge"><i class="bi bi-arrow-down-circle"></i> rec ~' + limRec + ' m · upper ~' + limUpper + ' m</span>' +
-            '<button class="btn-gas-toggle' + (gas.active ? ' active' : '') + '" onclick="selectGas(' + gas.id + ')">' +
-                '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"></i>' +
-                (gas.active ? ' Selected' : ' Select') +
-            '</button>' +
-        '</div>';
+        '<div class="gas-card-info">' + limRec + ' m – ' + limUpper + ' m · SP ' + gas.setpoint + ' bar</div>';
 
     return card;
 }
@@ -190,6 +184,8 @@ function openAddGas() {
     document.getElementById('modal_he').value = 0;
     document.getElementById('modal_sp').value = 1.4;
     document.getElementById('modal_bestmix_note').textContent = '';
+    var diveDepth = parseFloat(document.getElementById('depth_m').value) || 30;
+    document.getElementById('modal_bm_depth').value = Math.min(150, Math.max(5, Math.ceil(diveDepth / 5) * 5));
     updateModalPreview();
     _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
     _gasModalInstance.show();
@@ -206,6 +202,8 @@ function editGas(id) {
     document.getElementById('modal_he').value = gas.he;
     document.getElementById('modal_sp').value = gas.setpoint;
     document.getElementById('modal_bestmix_note').textContent = '';
+    var diveDepth = parseFloat(document.getElementById('depth_m').value) || 30;
+    document.getElementById('modal_bm_depth').value = Math.min(150, Math.max(5, Math.ceil(diveDepth / 5) * 5));
     updateModalPreview();
     _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
     _gasModalInstance.show();
@@ -221,6 +219,9 @@ function openAddBailoutGas() {
     document.getElementById('modal_mod').value = bailoutAutoMod(21);
     document.getElementById('modal_cyl_l').value = 7;
     document.getElementById('modal_cyl_bar').value = 200;
+    document.getElementById('modal_bailout_bestmix_note').textContent = '';
+    var diveDepth = parseFloat(document.getElementById('depth_m').value) || 30;
+    document.getElementById('modal_bm_depth').value = Math.min(150, Math.max(5, Math.ceil(diveDepth / 5) * 5));
     updateModalPreview();
     _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
     _gasModalInstance.show();
@@ -238,6 +239,9 @@ function editBailoutGas(id) {
     document.getElementById('modal_mod').value = gas.mod_m;
     document.getElementById('modal_cyl_l').value = gas.cyl_l || 7;
     document.getElementById('modal_cyl_bar').value = gas.cyl_bar || 200;
+    document.getElementById('modal_bailout_bestmix_note').textContent = '';
+    var diveDepth = parseFloat(document.getElementById('depth_m').value) || 30;
+    document.getElementById('modal_bm_depth').value = Math.min(150, Math.max(5, Math.ceil(diveDepth / 5) * 5));
     updateModalPreview();
     _gasModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('gasModal'));
     _gasModalInstance.show();
@@ -312,7 +316,7 @@ function confirmDeleteGas(id) {
 }
 
 function applyBestMix() {
-    var depth    = parseFloat(document.getElementById('depth_m').value) || 60;
+    var depth    = parseFloat(document.getElementById('modal_bm_depth').value) || 30;
     var setpoint = parseFloat(document.getElementById('modal_sp').value) || 1.3;
     var densLim  = selectedDensityLimit();
     var mix      = bestMix(depth, setpoint, densLim);
@@ -320,7 +324,28 @@ function applyBestMix() {
     document.getElementById('modal_he').value = mix.he;
     var limitLabel = densLim === 6.3 ? '6.3 g/L (upper)' : '5.2 g/L (recommended)';
     document.getElementById('modal_bestmix_note').textContent =
-        depth + ' m · SP ' + setpoint + ' · O₂ ≤ SP/amb · density ≤' + limitLabel;
+        depth + ' m · SP ' + setpoint + ' · O₂ ≤ SP/amb · density ≤ ' + limitLabel;
+    updateModalPreview();
+}
+
+function applyBailoutBestMix() {
+    var depth   = parseFloat(document.getElementById('modal_bm_depth').value) || 30;
+    var ppO2    = parseFloat(document.getElementById('modal_bm_ppo2').value) || 1.4;
+    var densLim = document.getElementById('dl_upper_bailout').checked ? 6.3 : 5.2;
+    var amb     = depth / 10 + 1;
+    var fO2     = Math.min(1, ppO2 / amb);
+    var densLimSurf = densLim / amb;
+    var fHe = (densLimSurf - RHO_N2 - fO2 * (RHO_O2 - RHO_N2)) / (RHO_HE - RHO_N2);
+    fHe = Math.max(0, Math.min(1 - fO2, fHe));
+    var heRounded = Math.ceil(fHe * 20) * 5;
+    var o2Rounded = Math.round(fO2 * 100);
+    if (o2Rounded + heRounded > 100) heRounded = 100 - o2Rounded;
+    document.getElementById('modal_o2').value  = o2Rounded;
+    document.getElementById('modal_he').value  = heRounded;
+    document.getElementById('modal_mod').value = bailoutAutoMod(o2Rounded);
+    var limitLabel = densLim === 6.3 ? '6.3 g/L (upper)' : '5.2 g/L (recommended)';
+    document.getElementById('modal_bailout_bestmix_note').textContent =
+        depth + ' m · ppO₂ ' + ppO2.toFixed(1) + ' · density ≤ ' + limitLabel;
     updateModalPreview();
 }
 
@@ -341,9 +366,11 @@ function updateModalPreview() {
     var limUpper = densityLimitDepth(o2, he, 6.3);
     document.getElementById('modal_limit').textContent = 'rec ~' + limRec + ' m · upper ~' + limUpper + ' m';
 
+    document.getElementById('modal_bm_depth_val').textContent = document.getElementById('modal_bm_depth').value;
+
     if (_gasModalMode === 'bailout') {
-        var autoMod = bailoutAutoMod(o2);
-        document.getElementById('modal_mod_auto').textContent = autoMod + ' m';
+        document.getElementById('modal_mod_auto').textContent = bailoutAutoMod(o2) + ' m';
+        document.getElementById('modal_bm_ppo2_val').textContent = parseFloat(document.getElementById('modal_bm_ppo2').value).toFixed(1);
     }
 }
 
@@ -354,15 +381,15 @@ var nextBailoutId  = 1;
 var editingBailoutId = null;
 
 var DEFAULT_BAILOUT_GASES = [
-    { o2: 100, he: 0,  mod_m: 6,  cyl_l: 3,  cyl_bar: 200 },
-    { o2: 80,  he: 0,  mod_m: 9,  cyl_l: 3,  cyl_bar: 200 },
-    { o2: 60,  he: 0,  mod_m: 12, cyl_l: 3,  cyl_bar: 200 },
-    { o2: 50,  he: 0,  mod_m: 15, cyl_l: 3,  cyl_bar: 200 },
-    { o2: 21,  he: 0,  mod_m: 54, cyl_l: 7,  cyl_bar: 200 },
-    { o2: 21,  he: 25, mod_m: 54, cyl_l: 7,  cyl_bar: 200 },
-    { o2: 20,  he: 55, mod_m: 57, cyl_l: 7,  cyl_bar: 200 },
-    { o2: 16,  he: 70, mod_m: 75, cyl_l: 7,  cyl_bar: 200 },
-    { o2: 13,  he: 75, mod_m: 96, cyl_l: 11, cyl_bar: 200 },
+    { o2: 100, he: 0,  mod_m: 6,  cyl_l: 11,  cyl_bar: 210 },
+    { o2: 80,  he: 0,  mod_m: 9,  cyl_l: 11,  cyl_bar: 210 },
+    { o2: 60,  he: 0,  mod_m: 12, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 50,  he: 0,  mod_m: 15, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 21,  he: 0,  mod_m: 54, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 21,  he: 25, mod_m: 54, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 20,  he: 55, mod_m: 57, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 16,  he: 70, mod_m: 75, cyl_l: 11,  cyl_bar: 210 },
+    { o2: 13,  he: 75, mod_m: 96, cyl_l: 11, cyl_bar: 210 },
 ];
 
 function bailoutAutoMod(o2) {
@@ -420,6 +447,8 @@ function buildBailoutCard(gas) {
     var o2 = gas.o2, he = gas.he;
     var n2 = Math.max(0, 100 - o2 - he);
     var name = gasName(o2, he);
+    var limRec   = densityLimitDepth(o2, he, 5.2);
+    var limUpper = densityLimitDepth(o2, he, 6.3);
 
     var card = document.createElement('div');
     card.className = 'gas-card' + (gas.active ? ' gas-card-active' : '');
@@ -428,23 +457,17 @@ function buildBailoutCard(gas) {
         '<div class="gas-card-top">' +
             '<span class="gas-card-name">' + name + '</span>' +
             '<span>' +
+                '<button class="btn-gas-action" onclick="toggleBailoutGas(' + gas.id + ')" title="' + (gas.active ? 'Included' : 'Include') + '"><i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i></button>' +
                 '<button class="btn-gas-action" onclick="editBailoutGas(' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
                 '<button class="btn-gas-action" onclick="confirmDeleteBailoutGas(' + gas.id + ')" title="Delete"><i class="bi bi-trash"></i></button>' +
             '</span>' +
         '</div>' +
-        '<div class="gas-card-meta">O₂ ' + o2 + '% · He ' + he + '% · N₂ ' + n2 + '% · MOD ' + gas.mod_m + ' m</div>' +
-        '<div class="gas-bar" style="margin-top:0.15rem;">' +
+        '<div class="gas-bar">' +
             '<div class="gas-bar-o2" style="width:' + o2 + '%"></div>' +
             '<div class="gas-bar-he" style="width:' + he + '%"></div>' +
             '<div class="gas-bar-n2" style="width:' + n2 + '%"></div>' +
         '</div>' +
-        '<div class="gas-card-footer">' +
-            '<span class="gas-depth-badge"><i class="bi bi-arrow-up-circle"></i> MOD ' + gas.mod_m + ' m</span>' +
-            '<button class="btn-gas-toggle' + (gas.active ? ' active' : '') + '" onclick="toggleBailoutGas(' + gas.id + ')">' +
-                '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + '"></i>' +
-                (gas.active ? ' Included' : ' Include') +
-            '</button>' +
-        '</div>';
+        '<div class="gas-card-info">' + limRec + ' m – ' + limUpper + ' m · MOD ' + gas.mod_m + ' m</div>';
 
     return card;
 }
@@ -698,6 +721,14 @@ function buildResult(data) {
     }
 
     var hasChart = data.profile_points && data.profile_points.length > 2;
+    var hasBailoutChart = data.bailout && data.bailout.profile_points && data.bailout.profile_points.length > 2;
+
+    var sharedXMax = 0;
+    if (hasChart && hasBailoutChart) {
+        var ccrXMax = Math.max.apply(null, data.profile_points.map(function (p) { return p.t; }));
+        var bailoutXMax = Math.max.apply(null, data.bailout.profile_points.map(function (p) { return p.t; })) + btMin;
+        sharedXMax = Math.max(ccrXMax, bailoutXMax);
+    }
 
     if (hasChart) {
         var row = document.createElement('div');
@@ -711,7 +742,7 @@ function buildResult(data) {
 
         var chartCol = document.createElement('div');
         chartCol.className = 'col-12 col-lg-7';
-        chartCol.appendChild(buildChart(data));
+        chartCol.appendChild(buildChart(data, sharedXMax));
         row.appendChild(chartCol);
 
         frag.appendChild(row);
@@ -720,7 +751,7 @@ function buildResult(data) {
     }
 
     if (data.bailout) {
-        frag.appendChild(buildBailoutScheduleCard(data));
+        frag.appendChild(buildBailoutScheduleCard(data, sharedXMax));
     }
 
     return frag;
@@ -738,7 +769,7 @@ function bailoutGasAtDepth(depth) {
     return sorted[sorted.length - 1];
 }
 
-function buildBailoutScheduleCard(data) {
+function buildBailoutScheduleCard(data, xMax) {
     var bailout   = data.bailout;
     var depthM    = parseFloat(document.getElementById('depth_m').value) || 0;
     var btMin     = parseFloat(document.getElementById('bottom_time').value) || 0;
@@ -900,7 +931,7 @@ function buildBailoutScheduleCard(data) {
 
         var chartCol = document.createElement('div');
         chartCol.className = 'col-12 col-lg-7';
-        chartCol.appendChild(buildBailoutChart(bailoutChartData));
+        chartCol.appendChild(buildBailoutChart(bailoutChartData, xMax));
         row.appendChild(chartCol);
 
         section.appendChild(row);
@@ -914,87 +945,17 @@ function buildBailoutScheduleCard(data) {
 
 // ── Dive profile chart ────────────────────────────────────────────────────────
 
-var _profileChart = null;
-var _tissueChart  = null;
+var _charts = {
+    ccr:     { profile: null, tissue: null, gfField: 'gf_high',         surfaceLabel: 'at surfacing' },
+    bailout: { profile: null, tissue: null, gfField: 'bailout_gf_high', surfaceLabel: 'at OC surfacing' },
+};
 
 var TISSUE_LABELS = ["5'","8'","12'","18'","27'","38'","54'","77'","109'","146'","187'","239'","305'","390'","498'","635'"];
 
-function buildChart(data) {
-    var wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-
-    var header = document.createElement('div');
-    header.className = 'chart-header';
-    var title = document.createElement('span');
-    title.className = 'result-heading';
-    title.textContent = 'Dive Profile';
-    var fsBtn = document.createElement('button');
-    fsBtn.className = 'chart-fs-btn';
-    fsBtn.title = 'Full screen';
-    fsBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
-    fsBtn.onclick = function () { toggleChartFullscreen(wrap, fsBtn); };
-    header.appendChild(title);
-    header.appendChild(fsBtn);
-    wrap.appendChild(header);
-
-    var profileBox = document.createElement('div');
-    profileBox.className = 'profile-canvas';
-    profileBox.style.height = '260px';
-    profileBox.style.position = 'relative';
-    var profileCanvas = document.createElement('canvas');
-    profileBox.appendChild(profileCanvas);
-    wrap.appendChild(profileBox);
-
-    var tissueBox = document.createElement('div');
-    tissueBox.style.height = '200px';
-    tissueBox.style.position = 'relative';
-    var tissueCanvas = document.createElement('canvas');
-    tissueBox.appendChild(tissueCanvas);
-    wrap.appendChild(tissueBox);
-
-    // Render profile chart on next tick (canvas needs to be in DOM for sizing)
-    setTimeout(function () {
-        renderProfileChart(profileCanvas, data);
-        renderTissueChart(tissueCanvas, data);
-
-        function hoverAtX(offsetX) {
-            if (!_profileChart || !_tissueChart) return;
-            var xVal = _profileChart.scales.x.getValueForPixel(offsetX);
-            var pts = data.profile_points;
-            if (!pts || !pts.length) return;
-            var nearest = pts.reduce(function (prev, curr) {
-                return Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev;
-            });
-            if (nearest && nearest.sats) _updateTissueData(nearest.sats, nearest.t);
-        }
-
-        function resetTissue() {
-            if (!_tissueChart) return;
-            var finalSats = data.tissue_saturations;
-            if (finalSats) _updateTissueData(finalSats, null);
-        }
-
-        profileCanvas.addEventListener('mousemove', function (e) { hoverAtX(e.offsetX); });
-        profileCanvas.addEventListener('mouseleave', resetTissue);
-
-        profileCanvas.addEventListener('touchmove', function (e) {
-            var touch = e.touches[0];
-            var rect = profileCanvas.getBoundingClientRect();
-            hoverAtX(touch.clientX - rect.left);
-        }, { passive: true });
-        profileCanvas.addEventListener('touchend', resetTissue);
-    }, 0);
-
-    return wrap;
-}
-
-function renderProfileChart(canvas, data) {
-    if (_profileChart) { _profileChart.destroy(); _profileChart = null; }
-
+function _profileChartConfig(data, xMax) {
     var pts = data.profile_points;
     var maxDepth = Math.max.apply(null, pts.map(function (p) { return p.d; }));
-
-    _profileChart = new Chart(canvas, {
+    return {
         type: 'line',
         data: {
             datasets: [
@@ -1003,11 +964,7 @@ function renderProfileChart(canvas, data) {
                     data: pts.map(function (p) { return { x: p.t, y: p.d }; }),
                     borderColor: 'rgba(0,100,160,0.85)',
                     backgroundColor: 'rgba(0,119,182,0.10)',
-                    fill: true,
-                    tension: 0,
-                    pointRadius: 0,
-                    borderWidth: 2,
-                    order: 2,
+                    fill: true, tension: 0, pointRadius: 0, borderWidth: 2, order: 2,
                 },
                 {
                     label: 'Ceiling',
@@ -1015,11 +972,7 @@ function renderProfileChart(canvas, data) {
                     borderColor: 'rgba(220,80,40,0.8)',
                     borderDash: [6, 4],
                     backgroundColor: 'transparent',
-                    fill: false,
-                    tension: 0,
-                    pointRadius: 0,
-                    borderWidth: 1.5,
-                    order: 1,
+                    fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, order: 1,
                 },
             ],
         },
@@ -1031,255 +984,12 @@ function renderProfileChart(canvas, data) {
             scales: {
                 x: {
                     type: 'linear',
+                    suggestedMax: xMax || undefined,
                     title: { display: true, text: 'Time (min)', font: { size: 10 } },
                     ticks: { font: { size: 10 } },
                 },
                 y: {
-                    reverse: true,
-                    min: 0,
-                    suggestedMax: Math.ceil(maxDepth * 1.08 / 5) * 5,
-                    title: { display: true, text: 'Depth (m)', font: { size: 10 } },
-                    ticks: { font: { size: 10 } },
-                },
-            },
-            plugins: {
-                legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 10 } },
-                tooltip: {
-                    callbacks: {
-                        title: function (items) { return Math.round(items[0].parsed.x) + ' min'; },
-                        label: function (item) {
-                            return item.dataset.label + ': ' + item.parsed.y + ' m';
-                        },
-                    },
-                },
-            },
-        },
-    });
-}
-
-function renderTissueChart(canvas, data) {
-    if (_tissueChart) { _tissueChart.destroy(); _tissueChart = null; }
-
-    var gfHighPct = parseFloat(document.getElementById('gf_high').value) || 80;
-    var sats = data.tissue_saturations.map(function (r) { return Math.round(r * 100); });
-
-    var colors = sats.map(function (s) {
-        if (s > 100)        return 'rgba(220,53,69,0.75)';
-        if (s > gfHighPct)  return 'rgba(255,140,0,0.75)';
-        return 'rgba(32,150,130,0.75)';
-    });
-
-    _tissueChart = new Chart(canvas, {
-        data: {
-            labels: TISSUE_LABELS,
-            datasets: [
-                {
-                    type: 'bar',
-                    label: 'Saturation',
-                    data: sats,
-                    backgroundColor: colors,
-                    borderRadius: 3,
-                    order: 2,
-                },
-                {
-                    type: 'line',
-                    label: 'GF High (' + gfHighPct + '%)',
-                    data: Array(16).fill(gfHighPct),
-                    borderColor: 'rgba(255,140,0,0.9)',
-                    borderDash: [5, 4],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false,
-                    order: 1,
-                },
-                {
-                    type: 'line',
-                    label: 'M-value (100%)',
-                    data: Array(16).fill(100),
-                    borderColor: 'rgba(220,53,69,0.85)',
-                    borderDash: [3, 3],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false,
-                    order: 0,
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 0 },
-            scales: {
-                x: { title: { display: true, text: 'Compartment half-time', font: { size: 10 } }, ticks: { font: { size: 10 } } },
-                y: {
-                    min: 0,
-                    max: Math.max(110, Math.max.apply(null, sats) + 5),
-                    title: { display: true, text: '% of GF-adjusted M-value', font: { size: 10 } },
-                    ticks: { font: { size: 10 } },
-                },
-            },
-            plugins: {
-                legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 8 } },
-                title: { display: true, text: 'Tissue loading at surfacing', font: { size: 10 }, color: '#555', padding: { bottom: 2 } },
-            },
-        },
-    });
-}
-
-function _updateTissueData(sats, timeMin) {
-    if (!_tissueChart) return;
-    var gfHighPct = parseFloat(document.getElementById('gf_high').value) || 80;
-    var satsPct = sats.map(function(r) { return Math.round(r * 100); });
-    _tissueChart.data.datasets[0].data = satsPct;
-    _tissueChart.data.datasets[0].backgroundColor = satsPct.map(function(s) {
-        if (s > 100)       return 'rgba(220,53,69,0.75)';
-        if (s > gfHighPct) return 'rgba(255,140,0,0.75)';
-        return 'rgba(32,150,130,0.75)';
-    });
-    var label = timeMin !== null ? 'at ' + parseFloat(timeMin).toFixed(1) + ' min' : 'at surfacing';
-    _tissueChart.options.plugins.title.text = 'Tissue loading ' + label;
-    _tissueChart.update('none');
-}
-function toggleChartFullscreen(wrap, btn) {
-    if (!document.fullscreenElement) {
-        wrap.requestFullscreen();
-        btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
-    } else {
-        document.exitFullscreen();
-        btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
-    }
-}
-
-document.addEventListener('fullscreenchange', function () {
-    if (!document.fullscreenElement) {
-        var btn = document.querySelector('.chart-fs-btn');
-        if (btn) btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
-    }
-    if (_profileChart)        _profileChart.resize();
-    if (_tissueChart)         _tissueChart.resize();
-    if (_bailoutProfileChart) _bailoutProfileChart.resize();
-    if (_bailoutTissueChart)  _bailoutTissueChart.resize();
-});
-
-// ── Bailout profile chart ─────────────────────────────────────────────────────
-
-var _bailoutProfileChart = null;
-var _bailoutTissueChart  = null;
-
-function buildBailoutChart(data) {
-    var wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-
-    var header = document.createElement('div');
-    header.className = 'chart-header';
-    var title = document.createElement('span');
-    title.className = 'result-heading';
-    title.textContent = 'Bailout Profile';
-    var fsBtn = document.createElement('button');
-    fsBtn.className = 'chart-fs-btn';
-    fsBtn.title = 'Full screen';
-    fsBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
-    fsBtn.onclick = function () { toggleChartFullscreen(wrap, fsBtn); };
-    header.appendChild(title);
-    header.appendChild(fsBtn);
-    wrap.appendChild(header);
-
-    var profileBox = document.createElement('div');
-    profileBox.className = 'profile-canvas';
-    profileBox.style.height = '260px';
-    profileBox.style.position = 'relative';
-    var profileCanvas = document.createElement('canvas');
-    profileBox.appendChild(profileCanvas);
-    wrap.appendChild(profileBox);
-
-    var tissueBox = document.createElement('div');
-    tissueBox.style.height = '200px';
-    tissueBox.style.position = 'relative';
-    var tissueCanvas = document.createElement('canvas');
-    tissueBox.appendChild(tissueCanvas);
-    wrap.appendChild(tissueBox);
-
-    setTimeout(function () {
-        _renderBailoutProfileChart(profileCanvas, data);
-        _renderBailoutTissueChart(tissueCanvas, data);
-
-        function hoverAtX(offsetX) {
-            if (!_bailoutProfileChart || !_bailoutTissueChart) return;
-            var xVal = _bailoutProfileChart.scales.x.getValueForPixel(offsetX);
-            var pts = data.profile_points;
-            if (!pts || !pts.length) return;
-            var nearest = pts.reduce(function (prev, curr) {
-                return Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev;
-            });
-            if (nearest && nearest.sats) _updateBailoutTissueData(nearest.sats, nearest.t);
-        }
-        function resetTissue() {
-            if (!_bailoutTissueChart) return;
-            _updateBailoutTissueData(data.tissue_saturations, null);
-        }
-
-        profileCanvas.addEventListener('mousemove', function (e) { hoverAtX(e.offsetX); });
-        profileCanvas.addEventListener('mouseleave', resetTissue);
-        profileCanvas.addEventListener('touchmove', function (e) {
-            var touch = e.touches[0];
-            var rect = profileCanvas.getBoundingClientRect();
-            hoverAtX(touch.clientX - rect.left);
-        }, { passive: true });
-        profileCanvas.addEventListener('touchend', resetTissue);
-    }, 0);
-
-    return wrap;
-}
-
-function _renderBailoutProfileChart(canvas, data) {
-    if (_bailoutProfileChart) { _bailoutProfileChart.destroy(); _bailoutProfileChart = null; }
-
-    var pts = data.profile_points;
-    var maxDepth = Math.max.apply(null, pts.map(function (p) { return p.d; }));
-
-    _bailoutProfileChart = new Chart(canvas, {
-        type: 'line',
-        data: {
-            datasets: [
-                {
-                    label: 'Depth',
-                    data: pts.map(function (p) { return { x: p.t, y: p.d }; }),
-                    borderColor: 'rgba(0,100,160,0.85)',
-                    backgroundColor: 'rgba(0,119,182,0.10)',
-                    fill: true,
-                    tension: 0,
-                    pointRadius: 0,
-                    borderWidth: 2,
-                    order: 2,
-                },
-                {
-                    label: 'Ceiling',
-                    data: pts.map(function (p) { return { x: p.t, y: p.c }; }),
-                    borderColor: 'rgba(220,80,40,0.8)',
-                    borderDash: [6, 4],
-                    backgroundColor: 'transparent',
-                    fill: false,
-                    tension: 0,
-                    pointRadius: 0,
-                    borderWidth: 1.5,
-                    order: 1,
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 0 },
-            interaction: { mode: 'index', intersect: false },
-            scales: {
-                x: {
-                    type: 'linear',
-                    title: { display: true, text: 'Time (min)', font: { size: 10 } },
-                    ticks: { font: { size: 10 } },
-                },
-                y: {
-                    reverse: true,
-                    min: 0,
+                    reverse: true, min: 0,
                     suggestedMax: Math.ceil(maxDepth * 1.08 / 5) * 5,
                     title: { display: true, text: 'Depth (m)', font: { size: 10 } },
                     ticks: { font: { size: 10 } },
@@ -1295,53 +1005,34 @@ function _renderBailoutProfileChart(canvas, data) {
                 },
             },
         },
-    });
+    };
 }
 
-function _renderBailoutTissueChart(canvas, data) {
-    if (_bailoutTissueChart) { _bailoutTissueChart.destroy(); _bailoutTissueChart = null; }
-
-    var gfHighPct = parseFloat(document.getElementById('bailout_gf_high').value) || 80;
-    var sats = data.tissue_saturations.map(function (r) { return Math.round(r * 100); });
+function _tissueChartConfig(sats, gfHighPct, titleText) {
     var colors = sats.map(function (s) {
         if (s > 100)       return 'rgba(220,53,69,0.75)';
         if (s > gfHighPct) return 'rgba(255,140,0,0.75)';
         return 'rgba(32,150,130,0.75)';
     });
-
-    _bailoutTissueChart = new Chart(canvas, {
+    return {
         data: {
             labels: TISSUE_LABELS,
             datasets: [
                 {
-                    type: 'bar',
-                    label: 'Saturation',
-                    data: sats,
-                    backgroundColor: colors,
-                    borderRadius: 3,
-                    order: 2,
+                    type: 'bar', label: 'Saturation', data: sats,
+                    backgroundColor: colors, borderRadius: 3, order: 2,
                 },
                 {
-                    type: 'line',
-                    label: 'GF High (' + gfHighPct + '%)',
+                    type: 'line', label: 'GF High (' + gfHighPct + '%)',
                     data: Array(16).fill(gfHighPct),
-                    borderColor: 'rgba(255,140,0,0.9)',
-                    borderDash: [5, 4],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false,
-                    order: 1,
+                    borderColor: 'rgba(255,140,0,0.9)', borderDash: [5, 4],
+                    borderWidth: 1.5, pointRadius: 0, fill: false, order: 1,
                 },
                 {
-                    type: 'line',
-                    label: 'M-value (100%)',
+                    type: 'line', label: 'M-value (100%)',
                     data: Array(16).fill(100),
-                    borderColor: 'rgba(220,53,69,0.85)',
-                    borderDash: [3, 3],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: false,
-                    order: 0,
+                    borderColor: 'rgba(220,53,69,0.85)', borderDash: [3, 3],
+                    borderWidth: 1.5, pointRadius: 0, fill: false, order: 0,
                 },
             ],
         },
@@ -1360,26 +1051,123 @@ function _renderBailoutTissueChart(canvas, data) {
             },
             plugins: {
                 legend: { display: true, labels: { font: { size: 10 }, boxWidth: 14, padding: 8 } },
-                title: { display: true, text: 'Tissue loading at OC surfacing', font: { size: 10 }, color: '#555', padding: { bottom: 2 } },
+                title: { display: true, text: titleText, font: { size: 10 }, color: '#555', padding: { bottom: 2 } },
             },
         },
-    });
+    };
 }
 
-function _updateBailoutTissueData(sats, timeMin) {
-    if (!_bailoutTissueChart) return;
-    var gfHighPct = parseFloat(document.getElementById('bailout_gf_high').value) || 80;
+function _updateTissueChart(ctx, sats, timeMin) {
+    if (!ctx.tissue) return;
+    var gfHighPct = parseFloat(document.getElementById(ctx.gfField).value) || 80;
     var satsPct = sats.map(function (r) { return Math.round(r * 100); });
-    _bailoutTissueChart.data.datasets[0].data = satsPct;
-    _bailoutTissueChart.data.datasets[0].backgroundColor = satsPct.map(function (s) {
+    ctx.tissue.data.datasets[0].data = satsPct;
+    ctx.tissue.data.datasets[0].backgroundColor = satsPct.map(function (s) {
         if (s > 100)       return 'rgba(220,53,69,0.75)';
         if (s > gfHighPct) return 'rgba(255,140,0,0.75)';
         return 'rgba(32,150,130,0.75)';
     });
-    var label = timeMin !== null ? 'at ' + parseFloat(timeMin).toFixed(1) + ' min' : 'at OC surfacing';
-    _bailoutTissueChart.options.plugins.title.text = 'Tissue loading ' + label;
-    _bailoutTissueChart.update('none');
+    ctx.tissue.options.plugins.title.text = 'Tissue loading ' +
+        (timeMin !== null ? 'at ' + parseFloat(timeMin).toFixed(1) + ' min' : ctx.surfaceLabel);
+    ctx.tissue.update('none');
 }
+
+function _buildChartWrap(title, data, ctx, xMax) {
+    var wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+
+    var header = document.createElement('div');
+    header.className = 'chart-header';
+    var titleEl = document.createElement('span');
+    titleEl.className = 'result-heading';
+    titleEl.textContent = title;
+    var fsBtn = document.createElement('button');
+    fsBtn.className = 'chart-fs-btn';
+    fsBtn.title = 'Full screen';
+    fsBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    fsBtn.onclick = function () { toggleChartFullscreen(wrap, fsBtn); };
+    header.appendChild(titleEl);
+    header.appendChild(fsBtn);
+    wrap.appendChild(header);
+
+    var profileBox = document.createElement('div');
+    profileBox.className = 'profile-canvas';
+    profileBox.style.height = '260px';
+    profileBox.style.position = 'relative';
+    var profileCanvas = document.createElement('canvas');
+    profileBox.appendChild(profileCanvas);
+    wrap.appendChild(profileBox);
+
+    var tissueBox = document.createElement('div');
+    tissueBox.style.height = '200px';
+    tissueBox.style.position = 'relative';
+    var tissueCanvas = document.createElement('canvas');
+    tissueBox.appendChild(tissueCanvas);
+    wrap.appendChild(tissueBox);
+
+    setTimeout(function () {
+        if (ctx.profile) { ctx.profile.destroy(); ctx.profile = null; }
+        ctx.profile = new Chart(profileCanvas, _profileChartConfig(data, xMax));
+
+        if (ctx.tissue) { ctx.tissue.destroy(); ctx.tissue = null; }
+        var gfHighPct = parseFloat(document.getElementById(ctx.gfField).value) || 80;
+        var sats = data.tissue_saturations.map(function (r) { return Math.round(r * 100); });
+        ctx.tissue = new Chart(tissueCanvas, _tissueChartConfig(sats, gfHighPct, 'Tissue loading ' + ctx.surfaceLabel));
+
+        function hoverAtX(offsetX) {
+            if (!ctx.profile || !ctx.tissue) return;
+            var xVal = ctx.profile.scales.x.getValueForPixel(offsetX);
+            var pts = data.profile_points;
+            if (!pts || !pts.length) return;
+            var nearest = pts.reduce(function (prev, curr) {
+                return Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev;
+            });
+            if (nearest && nearest.sats) _updateTissueChart(ctx, nearest.sats, nearest.t);
+        }
+        function resetTissue() { _updateTissueChart(ctx, data.tissue_saturations, null); }
+
+        profileCanvas.addEventListener('mousemove', function (e) { hoverAtX(e.offsetX); });
+        profileCanvas.addEventListener('mouseleave', resetTissue);
+        profileCanvas.addEventListener('touchmove', function (e) {
+            var touch = e.touches[0];
+            var rect = profileCanvas.getBoundingClientRect();
+            hoverAtX(touch.clientX - rect.left);
+        }, { passive: true });
+        profileCanvas.addEventListener('touchend', resetTissue);
+    }, 0);
+
+    return wrap;
+}
+
+function buildChart(data, xMax) {
+    return _buildChartWrap('Dive Profile', data, _charts.ccr, xMax);
+}
+
+function buildBailoutChart(data, xMax) {
+    return _buildChartWrap('Bailout Profile', data, _charts.bailout, xMax);
+}
+
+function toggleChartFullscreen(wrap, btn) {
+    if (!document.fullscreenElement) {
+        wrap.requestFullscreen();
+        btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+    } else {
+        document.exitFullscreen();
+        btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    }
+}
+
+document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement) {
+        var btn = document.querySelector('.chart-fs-btn');
+        if (btn) btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    }
+    Object.keys(_charts).forEach(function (key) {
+        var c = _charts[key];
+        if (c.profile) c.profile.resize();
+        if (c.tissue)  c.tissue.resize();
+    });
+});
 
 function buildMetricsCard(data) {
     var cnsColor = data.cns_pct > 80 ? '#dc3545' : data.cns_pct > 40 ? '#e07000' : 'var(--ocean)';

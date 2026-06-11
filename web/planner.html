@@ -35,34 +35,25 @@
             background: rgba(255,255,255,0.55);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 0.55rem 0.65rem;
-            margin-bottom: 0.45rem;
+            padding: 0.4rem 0.55rem;
+            margin-bottom: 0.3rem;
             transition: border-color 0.15s, background 0.15s;
         }
         .gas-card-active {
             border-color: var(--aqua);
             background: rgba(0,150,183,0.07);
         }
-        .gas-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.15rem; }
+        .gas-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.1rem; }
         .gas-card-name { font-size: 0.98rem; font-weight: 800; color: var(--navy); line-height: 1; }
         .gas-card-active .gas-card-name { color: var(--ocean); }
-        .gas-card-meta { font-size: 0.66rem; color: var(--muted); margin-bottom: 0.25rem; }
-        .gas-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.25rem; }
-        .gas-depth-badge { font-size: 0.63rem; color: var(--muted); }
+        .gas-card-info { font-size: 0.63rem; color: var(--muted); margin-top: 0.15rem; }
+        .gas-card .gas-bar { margin-top: 0.15rem; }
         .btn-gas-action {
             background: none; border: none; padding: 0.1rem 0.22rem;
             color: var(--muted); cursor: pointer; font-size: 0.78rem;
             border-radius: 3px; line-height: 1; transition: color 0.15s;
         }
         .btn-gas-action:hover { color: var(--navy); }
-        .btn-gas-toggle {
-            background: none; border: 1px solid var(--border); border-radius: 20px;
-            padding: 0.1rem 0.5rem; font-size: 0.63rem; font-weight: 600;
-            color: var(--muted); cursor: pointer; display: inline-flex;
-            align-items: center; gap: 0.2rem; transition: all 0.15s; white-space: nowrap;
-        }
-        .btn-gas-toggle:hover { border-color: var(--aqua); color: var(--aqua); }
-        .btn-gas-toggle.active { background: var(--aqua); border-color: var(--aqua); color: #fff; }
         .btn-add-gas {
             background: none; border: 1.5px solid var(--border); color: var(--ocean);
             border-radius: 50%; width: 22px; height: 22px; display: inline-flex;
@@ -235,6 +226,12 @@
                         <span id="modal_limit" class="text-muted"></span>
                     </div>
 
+                    <!-- Shared: depth slider -->
+                    <div class="mb-2">
+                        <label class="field-label">Depth &mdash; <b id="modal_bm_depth_val">—</b> m</label>
+                        <input type="range" class="form-range" id="modal_bm_depth" min="5" max="150" step="5" value="30" oninput="updateModalPreview()">
+                    </div>
+
                     <!-- Diluent-only fields -->
                     <div id="modal_diluent_fields">
                         <div class="mb-2">
@@ -248,13 +245,28 @@
                         <button type="button" class="btn btn-sm w-100"
                             style="background:#eef2f8;color:var(--ocean);font-size:0.75rem;font-weight:600;border:1px solid var(--border);"
                             onclick="applyBestMix()">
-                            <i class="bi bi-stars"></i> Best Mix for current depth
+                            <i class="bi bi-stars"></i> Best Mix
                         </button>
                         <div id="modal_bestmix_note" class="text-muted mt-1" style="font-size:0.65rem;text-align:center;"></div>
                     </div>
 
                     <!-- Bailout-only fields -->
                     <div id="modal_bailout_fields" class="d-none">
+                        <div class="mb-2">
+                            <label class="field-label">ppO₂ &mdash; <b id="modal_bm_ppo2_val">1.4</b> bar</label>
+                            <input type="range" class="form-range" id="modal_bm_ppo2" min="1.2" max="1.6" step="0.1" value="1.4" oninput="updateModalPreview()">
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="dl_upper_bailout" onchange="updateModalPreview()">
+                            <label class="form-check-label small text-muted" for="dl_upper_bailout">Upper density limit (6.3 g/L)</label>
+                        </div>
+                        <button type="button" class="btn btn-sm w-100 mb-1"
+                            style="background:#eef2f8;color:var(--ocean);font-size:0.75rem;font-weight:600;border:1px solid var(--border);"
+                            onclick="applyBailoutBestMix()">
+                            <i class="bi bi-stars"></i> Best Mix
+                        </button>
+                        <div id="modal_bailout_bestmix_note" class="text-muted mb-2" style="font-size:0.65rem;text-align:center;"></div>
+                        <hr class="my-2">
                         <div class="mb-2">
                             <label class="field-label">MOD <span class="text-muted" style="font-weight:400;font-size:0.65rem;">(auto at 1.4 bar ppO₂: <span id="modal_mod_auto">—</span>)</span></label>
                             <div class="input-group input-group-sm">
@@ -290,7 +302,7 @@
         <div class="row g-3 mb-4">
 
             <!-- Diluent Gas Library -->
-            <div class="col-md-6 col-xl-3">
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -305,7 +317,7 @@
             </div>
 
             <!-- Bailout Gas Library -->
-            <div class="col-md-6 col-xl-3">
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -320,7 +332,7 @@
             </div>
 
             <!-- Dive Parameters -->
-            <div class="col-md-6 col-xl-3">
+            <div class="col-md-4">
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="card-section-title">Dive Parameters</div>
@@ -332,27 +344,14 @@
                                 <span class="input-group-text">m</span>
                             </div>
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text" title="Run time from surface to start of ascent (includes descent)">Bottom time</span>
                                 <input type="number" class="form-control" id="bottom_time" min="1" max="360" value="20">
                                 <span class="input-group-text">min</span>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Calculate -->
-            <div class="col-md-6 col-xl-3 d-flex flex-column">
-                <div class="card h-100">
-                    <div class="card-body d-flex flex-column justify-content-between">
-                        <div>
-                            <div class="card-section-title">Algorithm</div>
-                            <p class="text-muted mb-1" style="font-size:0.78rem;">Bühlmann ZHL-16C &middot; CCR setpoint &middot; GF Low/High</p>
-                            <p class="text-muted mb-0" style="font-size:0.78rem;">3&thinsp;m stops &middot; Bottom time = run time to start of ascent</p>
-                        </div>
-                        <button class="btn btn-apply w-100 mt-3" onclick="calculate()">Calculate Decompression</button>
+                        <button class="btn btn-apply w-100" onclick="calculate()">Calculate Decompression</button>
                     </div>
                 </div>
             </div>
