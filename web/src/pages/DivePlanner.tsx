@@ -111,6 +111,7 @@ export default function DivePlanner() {
 
   const [settingsOpen,   setSettingsOpen]   = useState(false)
   const [savedPlansOpen, setSavedPlansOpen] = useState(false)
+  const [resetConfirm,   setResetConfirm]   = useState(false)
 
   const [gasModal, setGasModal] = useState<GasModalState>(INIT_MODAL)
   const [savePlanModal, setSavePlanModal] = useState<SavePlanModal>({ open: false, name: '', pending: null })
@@ -360,7 +361,6 @@ export default function DivePlanner() {
   }
 
   function resetToDefaults() {
-    if (!window.confirm('Reset everything to factory defaults?\n\nThis will clear all your gases, bailout gases, saved plans, and settings. This cannot be undone.')) return
     setGasLib(makeGasLibrary())
     setGasNextId(DEFAULT_GASES.length + 1)
     setBailoutLib(makeBailoutLibrary())
@@ -371,6 +371,7 @@ export default function DivePlanner() {
     setDepth(40)
     setBt(25)
     setResult(null)
+    setResetConfirm(false)
     setSettingsOpen(false)
   }
 
@@ -629,7 +630,7 @@ export default function DivePlanner() {
       </footer>
 
       {/* Settings offcanvas */}
-      <Offcanvas show={settingsOpen} onHide={() => setSettingsOpen(false)} placement="end">
+      <Offcanvas show={settingsOpen} onHide={() => { setSettingsOpen(false); setResetConfirm(false) }} placement="end">
         <Offcanvas.Header closeButton>
           <Offcanvas.Title>Personal Settings</Offcanvas.Title>
         </Offcanvas.Header>
@@ -639,9 +640,19 @@ export default function DivePlanner() {
           </p>
           <SettingsBody settings={settings} setSettings={setSettings} />
           <hr className="mt-4" />
-          <button className="btn btn-sm btn-outline-danger w-100" onClick={resetToDefaults}>
-            <i className="bi bi-arrow-counterclockwise me-1" />Reset to factory defaults
-          </button>
+          {!resetConfirm ? (
+            <button className="btn btn-sm btn-outline-danger w-100" onClick={() => setResetConfirm(true)}>
+              <i className="bi bi-arrow-counterclockwise me-1" />Reset to factory defaults
+            </button>
+          ) : (
+            <div className="border border-danger rounded p-2" style={{ fontSize: '0.82rem' }}>
+              <p className="text-danger fw-bold mb-1">This will clear all gases, bailout gases, saved plans, and settings. This cannot be undone.</p>
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-danger flex-grow-1" onClick={resetToDefaults}>Confirm reset</button>
+                <button className="btn btn-sm btn-outline-secondary flex-grow-1" onClick={() => setResetConfirm(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </Offcanvas.Body>
       </Offcanvas>
 
