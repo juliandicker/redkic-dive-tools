@@ -239,7 +239,7 @@ export default function DivePlanner() {
         o2: bg?.o2 ?? 21, he: bg?.he ?? 0,
         mod: bg?.mod_m ?? bailoutAutoMod(21),
         cylL: bg?.cyl_l ?? 7, cylBar: bg?.cyl_bar ?? 200,
-        bmDepth, bmSp: 1.3, bmPpO2: 1.4, dlUpper: false, bestMixNote: '',
+        bmDepth, bmSp: 1.3, bmPpO2: bg?.ppo2_limit ?? 1.4, dlUpper: false, bestMixNote: '',
         setpoint: 1.3,
       })
     } else {
@@ -293,11 +293,11 @@ export default function DivePlanner() {
       const mod = Math.min(ppO2Mod, densityLimitDepth(o2, he, dlUpper ? 6.3 : 5.2))
       if (editId != null) {
         setBailoutLib(prev => prev.map(g =>
-          g.id === editId ? { ...g, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar } : g
+          g.id === editId ? { ...g, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar, ppo2_limit: bmPpO2 } : g
         ))
       } else {
         const id = bailoutNextId
-        setBailoutLib(prev => [...prev, { id, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar, active: true }])
+        setBailoutLib(prev => [...prev, { id, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar, ppo2_limit: bmPpO2, active: true }])
         setBailoutNextId(id + 1)
       }
     } else {

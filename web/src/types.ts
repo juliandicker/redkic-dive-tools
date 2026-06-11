@@ -59,6 +59,7 @@ export interface GasEntry {
 export interface BailoutEntry {
   id: number; o2: number; he: number; mod_m: number
   cyl_l: number; cyl_bar: number; active: boolean
+  ppo2_limit?: number
 }
 export interface PlannerSettings {
   gfLow: number; gfHigh: number
