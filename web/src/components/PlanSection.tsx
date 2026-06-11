@@ -374,7 +374,7 @@ function resolveGasAtStop(
     const parts = sw.label.replace('Tx', '').replace('Nx', '').replace('N', '').split('/')
     const o2 = parseInt(parts[0]) || 21
     const he = parseInt(parts[1]) || 0
-    return { o2, he, name: gasName(o2, he) }
+    return { o2, he, name: sw.label }
   }
   const o2 = baseGas?.o2 ?? 21
   const he = baseGas?.he ?? 0
