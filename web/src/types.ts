@@ -21,7 +21,7 @@ export interface TrimixBlendResponse {
 
 export interface Warning { level: string; message: string }
 export interface DecoStop { depth_m: number; time_min: number; runtime_min: number }
-export interface ProfilePoint { t: number; d: number; c: number; sats: number[] }
+export interface ProfilePoint { t: number; d: number; c: number; sats: number[]; inert?: [number, number][] }
 export interface DensityAnalysis {
   density_gl: number
   exceeded_recommended: boolean

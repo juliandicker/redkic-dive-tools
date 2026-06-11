@@ -149,6 +149,7 @@ class ProfilePoint(BaseModel):
     d: float = Field(description="Depth (m)")
     c: float = Field(description="Ceiling (m)")
     sats: List[float] = Field(description="Tissue saturation ratios (16 compartments)")
+    inert: List[List[float]] = Field(default_factory=list, description="Inert gas loads [[pn2, phe]] per compartment")
 
 
 class GasSwitch(BaseModel):
@@ -520,7 +521,7 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
                     for gs in bailout.gas_switches
                 ],
                 profile_points=[
-                    ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'])
+                    ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'], inert=pp.get('inert', []))
                     for pp in bailout.profile_points
                 ],
                 tissue_saturations=bailout.tissue_saturations,

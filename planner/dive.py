@@ -52,6 +52,7 @@ def _build_bottom_model(gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_
             'd': round(float(depth), 1),
             'c': round(max(0.0, float(ceiling)), 1),
             'sats': model.tissue_saturations(gf_high),
+            'inert': [[round(t.pn2, 4), round(t.phe, 4)] for t in model.tissues],
         })
 
     rec(0.0, 0.0)
@@ -103,6 +104,7 @@ def _run_deco_ascent(
             'd': round(float(depth), 1),
             'c': round(max(0.0, float(ceiling)), 1),
             'sats': model.tissue_saturations(gf_high),
+            'inert': [[round(t.pn2, 4), round(t.phe, 4)] for t in model.tissues],
         })
 
     current_depth = float(start_depth)
@@ -210,6 +212,7 @@ def _run_deco_ascent(
         'd': 0.0,
         'c': 0.0,
         'sats': model.tissue_saturations(gf_high),
+        'inert': [[round(t.pn2, 4), round(t.phe, 4)] for t in model.tissues],
     })
 
     profile = DiveProfile(
