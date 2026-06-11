@@ -236,11 +236,23 @@ export default function PlanSection({
                       <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
                       <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
                     </tr>
-                    {/* Deco stops — thick top border marks a gas switch above (incl. OC bailout switch at first stop) */}
+                    {/* OC bailout switch row — thick top border marks the CCR→OC transition */}
+                    {isBailout && (
+                      <tr style={{ borderTop: '2px solid #495057' }}>
+                        <td className="ps-2"><i className="bi bi-lightning-charge-fill" style={{ color: '#dc3545' }} /></td>
+                        <td>{depth} m</td>
+                        <td>—</td>
+                        <td>{Math.round(bt)}</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td style={{ fontSize: '0.78rem' }}>{bailoutInitialGas ? gasName(bailoutInitialGas.o2, bailoutInitialGas.he) : '—'}</td>
+                      </tr>
+                    )}
+                    {/* Deco stops — thick top border marks a deco gas switch above */}
                     {decoStops.map((stop, i) => {
                       const isLast = i === decoStops.length - 1
                       const prevDepth = i === 0 ? Infinity : decoStops[i - 1].depth_m
-                      const switchAbove = (isBailout && i === 0) || gasSwitches.some(
+                      const switchAbove = gasSwitches.some(
                         sw => sw.depth_m >= stop.depth_m && sw.depth_m < prevDepth
                       )
                       const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, bailoutInitialGas ?? gas)
@@ -359,10 +371,10 @@ function resolveGasAtStop(
   const relevant = switches.filter(s => s.depth_m >= depthM)
   if (relevant.length > 0) {
     const sw = relevant[relevant.length - 1]
-    const parts = sw.label.replace('Tx', '').replace('Nx', '').split('/')
+    const parts = sw.label.replace('Tx', '').replace('Nx', '').replace('N', '').split('/')
     const o2 = parseInt(parts[0]) || 21
     const he = parseInt(parts[1]) || 0
-    return { o2, he, name: sw.label }
+    return { o2, he, name: gasName(o2, he) }
   }
   const o2 = baseGas?.o2 ?? 21
   const he = baseGas?.he ?? 0

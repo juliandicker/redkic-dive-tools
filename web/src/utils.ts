@@ -40,7 +40,7 @@ export function bailoutAutoMod(o2: number): number {
 
 export function gasName(o2: number, he: number): string {
   if (o2 === 100) return 'O₂'
-  if (he === 0) return o2 === 21 ? 'Air' : `Nx${o2}`
+  if (he === 0) return o2 === 21 ? 'Air' : `N${o2}`
   return `Tx${o2}/${he}`
 }
 

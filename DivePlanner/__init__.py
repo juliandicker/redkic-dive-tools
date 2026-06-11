@@ -45,7 +45,7 @@ def _gas_label(g):
         return 'O₂'
     if o2 == 21:
         return 'Air'
-    return f'Nx{o2}'
+    return f'N{o2}'
 
 
 def _oc_cns_otu(bailout_profile, sorted_gases):
