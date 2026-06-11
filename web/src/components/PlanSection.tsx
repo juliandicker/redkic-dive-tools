@@ -400,7 +400,7 @@ export default function PlanSection({
             >
               <Line ref={profileRef} data={profileData} options={profileOptions} />
             </div>
-            <div style={{ height: 200, position: 'relative', marginTop: 8 }}>
+            <div className="no-print" style={{ height: 200, position: 'relative', marginTop: 8 }}>
               <Bar data={tissueData} options={tissueOptions} />
             </div>
           </div>
