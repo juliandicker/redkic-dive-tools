@@ -138,6 +138,30 @@ export default function DivePlanner() {
   const activeGas = useMemo(() => gasLib.find(g => g.active) ?? null, [gasLib])
   const activeBailout = useMemo(() => bailoutLib.filter(g => g.active), [bailoutLib])
 
+  // Gas used at bailout depth — lowest-MOD active bailout gas whose MOD covers the depth
+  const bailoutInitialGas = useMemo(() => {
+    if (activeBailout.length === 0) return null
+    const sorted = [...activeBailout].sort((a, b) => a.mod_m - b.mod_m)
+    return (sorted.find(g => depth <= g.mod_m) ?? sorted[sorted.length - 1])
+  }, [activeBailout, depth])
+
+  // Shared X axis max so CCR and bailout charts align
+  const btActual = result?.bottom_time_actual ?? bt
+  const sharedXMax = useMemo(() => {
+    if (!result?.bailout?.profile_points?.length || !result.profile_points?.length) return undefined
+    const ccrXMax = result.profile_points[result.profile_points.length - 1].t
+    const ocXMax  = result.bailout.profile_points[result.bailout.profile_points.length - 1].t + btActual
+    return Math.max(ccrXMax, ocXMax)
+  }, [result, btActual])
+
+  // Bailout chart: CCR descent+bottom pts prepended, OC pts offset by btActual
+  const bailoutProfilePoints = useMemo(() => {
+    if (!result?.bailout) return []
+    const ccrPts = result.profile_points.filter(p => p.t <= btActual + 0.05)
+    const ocPts  = result.bailout.profile_points.map(p => ({ ...p, t: p.t + btActual }))
+    return [...ccrPts, ...ocPts]
+  }, [result, btActual])
+
   async function calculate() {
     if (!activeGas) return
     setError('')
@@ -473,8 +497,9 @@ export default function DivePlanner() {
               gfHigh={settings.gfHigh}
               diluent={activeGas}
               depthM={depth}
-              btMin={result.bottom_time_actual ?? bt}
+              btMin={btActual}
               descRate={settings.descRate}
+              xAxisMax={sharedXMax}
             />
 
             {result.bailout && (
@@ -486,7 +511,7 @@ export default function DivePlanner() {
                   ttsMin={result.bailout.tts_min}
                   cnsPct={result.bailout.cns_pct}
                   otu={result.bailout.otu}
-                  profilePoints={result.bailout.profile_points}
+                  profilePoints={bailoutProfilePoints}
                   tissueSaturations={result.bailout.tissue_saturations}
                   gasSwitches={result.bailout.gas_switches}
                   gasSupply={result.bailout.gas_supply}
@@ -494,9 +519,11 @@ export default function DivePlanner() {
                   gfHigh={settings.bailoutGfHigh}
                   diluent={activeGas}
                   depthM={depth}
-                  btMin={result.bottom_time_actual ?? bt}
+                  btMin={btActual}
                   descRate={settings.descRate}
                   isBailout
+                  bailoutInitialGas={bailoutInitialGas}
+                  xAxisMax={sharedXMax}
                 />
               </div>
             )}

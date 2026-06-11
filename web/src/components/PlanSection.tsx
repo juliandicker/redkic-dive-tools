@@ -32,12 +32,15 @@ interface PlanSectionProps {
   btMin?: number
   descRate?: number
   isBailout?: boolean
+  bailoutInitialGas?: { o2: number; he: number } | null
+  xAxisMax?: number
 }
 
 export default function PlanSection({
   title, decoStops, totalTimeMin, ttsMin, cnsPct, otu,
   profilePoints, tissueSaturations, gasSwitches,
-  gasSupply, warnings, gfHigh, diluent, depthM, btMin, descRate, isBailout,
+  gasSupply, warnings, gfHigh, diluent, depthM, btMin, descRate,
+  isBailout, bailoutInitialGas, xAxisMax,
 }: PlanSectionProps) {
   const [hoveredSats, setHoveredSats] = useState<number[] | null>(null)
   const profileRef = useRef<ChartJS<'line'>>(null)
@@ -72,7 +75,8 @@ export default function PlanSection({
     }
   }
 
-  const xMax = profilePoints.length ? profilePoints[profilePoints.length - 1].t : totalTimeMin
+  const autoXMax = profilePoints.length ? profilePoints[profilePoints.length - 1].t : totalTimeMin
+  const chartXMax = xAxisMax ?? autoXMax
 
   const profileData: ChartData<'line'> = {
     datasets: [
@@ -109,7 +113,7 @@ export default function PlanSection({
       x: {
         type: 'linear',
         title: { display: true, text: 'Time (min)', font: { size: 10 } },
-        min: 0, max: xMax,
+        min: 0, max: chartXMax,
         ticks: { font: { size: 10 } },
       },
       y: {
@@ -166,18 +170,26 @@ export default function PlanSection({
     animation: false,
   }
 
-  const gas    = diluent
-  const depth  = depthM ?? 0
-  const bt     = btMin  ?? 0
-  const dRate  = descRate ?? 20
-  const descTime = Math.round(depth / dRate)
-  const flatBt   = Math.round(bt - descTime)
-  const sp       = gas?.setpoint ?? 1.3
-  const gO2      = gas?.o2 ?? 21
-  const gHe      = gas?.he ?? 0
+  const gas       = diluent
+  const depth     = depthM ?? 0
+  const bt        = btMin  ?? 0
+  const dRate     = descRate ?? 20
+  const descTime  = Math.round(depth / dRate)
+  const flatBt    = Math.round(bt - descTime)
+  const sp        = gas?.setpoint ?? 1.3
+  const gO2       = gas?.o2 ?? 21
+  const gHe       = gas?.he ?? 0
+
+  // For bailout stops: runtime reported by API is from OC bailout point, offset by bt for absolute runtime
+  const rtOffset = isBailout ? bt : 0
 
   const cnsColor = cnsPct > 80 ? '#dc3545' : cnsPct > 40 ? '#e07000' : 'var(--ocean)'
   const otuColor = otu > 250    ? '#dc3545' : otu > 150   ? '#e07000' : 'var(--navy)'
+
+  // ppO2 for the initial OC bailout switch row
+  const bigO2  = bailoutInitialGas?.o2 ?? gO2
+  const bigHe  = bailoutInitialGas?.he ?? gHe
+  const bigPpO2 = ((bigO2 / 100) * (depth / 10 + 1)).toFixed(2)
 
   return (
     <div>
@@ -192,7 +204,6 @@ export default function PlanSection({
         <div className="col-12 col-lg-5">
           <div className="mb-1"><span className="result-heading">{title}</span></div>
 
-          {/* Schedule table */}
           <div className="card mb-0">
             <div className="card-body p-0">
               <div className="table-responsive">
@@ -205,28 +216,39 @@ export default function PlanSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {!isBailout && (
-                      <tr>
-                        <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
-                        <td>0→{depth}m</td>
-                        <td>{descTime}</td>
-                        <td>{descTime}</td>
-                        <td>{sp.toFixed(2)}</td>
-                        <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
-                        <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
-                      </tr>
-                    )}
-                    {!isBailout && (
-                      <tr>
-                        <td className="ps-2"><i className="bi bi-circle-fill" style={{ color: '#03045e', fontSize: '0.55em', verticalAlign: 'middle' }} /></td>
+                    {/* CCR descent — shown for both CCR plan and bailout */}
+                    <tr style={isBailout ? { background: 'rgba(0,119,182,0.04)' } : {}}>
+                      <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
+                      <td>0→{depth}m</td>
+                      <td>{descTime}</td>
+                      <td>{descTime}</td>
+                      <td>{sp.toFixed(2)}</td>
+                      <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                      <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                    </tr>
+                    {/* CCR bottom */}
+                    <tr style={isBailout ? { background: 'rgba(0,119,182,0.04)' } : {}}>
+                      <td className="ps-2"><i className="bi bi-circle-fill" style={{ color: '#03045e', fontSize: '0.55em', verticalAlign: 'middle' }} /></td>
+                      <td>{depth} m</td>
+                      <td>{flatBt}</td>
+                      <td>{Math.round(bt)}</td>
+                      <td>{sp.toFixed(2)}</td>
+                      <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                      <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                    </tr>
+                    {/* OC bailout switch row */}
+                    {isBailout && (
+                      <tr style={{ background: 'rgba(220,53,69,0.07)' }}>
+                        <td className="ps-2"><i className="bi bi-lightning-charge-fill" style={{ color: '#dc3545' }} /></td>
                         <td>{depth} m</td>
-                        <td>{flatBt}</td>
+                        <td>—</td>
                         <td>{Math.round(bt)}</td>
-                        <td>{sp.toFixed(2)}</td>
-                        <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
-                        <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                        <td>{bigPpO2}</td>
+                        <td>{(surfaceDensity(bigO2, bigHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{gasName(bigO2, bigHe)}</td>
                       </tr>
                     )}
+                    {/* Deco gas switches (bailout only) */}
                     {gasSwitches.map((sw, i) => (
                       <tr key={`sw${i}`} style={{ background: '#f0f8ff' }}>
                         <td className="ps-2"><i className="bi bi-arrow-repeat" style={{ color: 'var(--aqua)' }} /></td>
@@ -235,9 +257,10 @@ export default function PlanSection({
                         <td style={{ fontSize: '0.78rem', color: 'var(--ocean)', fontWeight: 700 }}>→ {sw.label}</td>
                       </tr>
                     ))}
+                    {/* Deco stops */}
                     {decoStops.map((stop, i) => {
                       const isLast = i === decoStops.length - 1
-                      const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, gas)
+                      const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, bailoutInitialGas ?? gas)
                       const dens = (surfaceDensity(gasAtStop.o2, gasAtStop.he) * (stop.depth_m / 10 + 1)).toFixed(2)
                       const densNum = parseFloat(dens)
                       const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
@@ -247,14 +270,12 @@ export default function PlanSection({
                       return (
                         <tr key={i}>
                           <td className="ps-2">
-                            <i
-                              className={`bi bi-arrow-up-circle`}
-                              style={{ color: isLast ? '#198754' : '#e07000' }}
-                            />
+                            <i className="bi bi-arrow-up-circle"
+                              style={{ color: isLast ? '#198754' : '#e07000' }} />
                           </td>
                           <td>{stop.depth_m} m</td>
                           <td>{stop.time_min}</td>
-                          <td>{stop.runtime_min}</td>
+                          <td>{Math.round(rtOffset + stop.runtime_min)}</td>
                           <td>{ppO2}</td>
                           <td style={densColor ? { color: densColor } : {}}>{dens}</td>
                           <td style={{ fontSize: '0.78rem' }}>{gasAtStop.name}</td>
@@ -272,10 +293,10 @@ export default function PlanSection({
             <div className="card-body py-2 px-3">
               <div className="d-flex justify-content-around text-center">
                 {[
-                  { label: 'Runtime', val: `${totalTimeMin} min`, color: 'var(--ocean)' },
-                  { label: 'TTS',     val: `${ttsMin} min`,       color: 'var(--ocean)' },
-                  { label: 'CNS',     val: `${cnsPct}%`,           color: cnsColor },
-                  { label: 'OTU',     val: `${otu}`,               color: otuColor },
+                  { label: 'Runtime', val: `${Math.round(rtOffset + totalTimeMin)} min`, color: 'var(--ocean)' },
+                  { label: isBailout ? 'TTS (OC)' : 'TTS', val: `${ttsMin} min`, color: 'var(--ocean)' },
+                  { label: 'CNS',     val: `${cnsPct}%`,                               color: cnsColor },
+                  { label: 'OTU',     val: `${otu}`,                                   color: otuColor },
                 ].map(({ label, val, color }) => (
                   <div key={label}>
                     <div className="field-label mb-1">{label}</div>
@@ -309,9 +330,7 @@ export default function PlanSection({
                             </span>
                           </>
                         ) : (
-                          <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
-                            {Math.round(gs.consumed_L)} L (no cylinder data)
-                          </span>
+                          <span style={{ color: 'var(--muted)' }}>{Math.round(gs.consumed_L)} L used</span>
                         )}
                       </div>
                     )
@@ -352,7 +371,7 @@ export default function PlanSection({
 function resolveGasAtStop(
   depthM: number,
   switches: GasSwitch[],
-  diluent?: { o2: number; he: number; setpoint: number },
+  baseGas?: { o2: number; he: number; setpoint?: number } | null,
 ): { o2: number; he: number; name: string } {
   const relevant = switches.filter(s => s.depth_m >= depthM)
   if (relevant.length > 0) {
@@ -362,7 +381,7 @@ function resolveGasAtStop(
     const he = parseInt(parts[1]) || 0
     return { o2, he, name: sw.label }
   }
-  const o2 = diluent?.o2 ?? 21
-  const he = diluent?.he ?? 0
+  const o2 = baseGas?.o2 ?? 21
+  const he = baseGas?.he ?? 0
   return { o2, he, name: gasName(o2, he) }
 }
