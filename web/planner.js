@@ -503,9 +503,11 @@ function calculate() {
         asc_rate_shallow_mpm: ascRateShallow,
         last_stop_m:          lastStopM,
         cns_warn_pct:         cnsWarnPct,
-        bailout_gases:        activeBailout.map(function (g) { return { o2: g.o2, he: g.he, mod_m: g.mod_m }; }),
+        bailout_gases:        activeBailout.map(function (g) { return { o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l || null, cyl_bar: g.cyl_bar || null }; }),
         bailout_gf_low:       bailoutGfLow,
         bailout_gf_high:      bailoutGfHigh,
+        sac_bottom_lpm:       parseFloat(document.getElementById('sac_bottom').value) || 20,
+        sac_deco_lpm:         parseFloat(document.getElementById('sac_deco').value) || 15,
     });
 
     var h   = window.location.hostname;
@@ -584,7 +586,7 @@ function buildResult(data) {
 
     var gas = activeGas();
     var depthM       = parseFloat(document.getElementById('depth_m').value) || 0;
-    var btMin        = parseFloat(document.getElementById('bottom_time').value) || 0;
+    var btMin        = data.bottom_time_actual != null ? data.bottom_time_actual : (parseFloat(document.getElementById('bottom_time').value) || 0);
     var sp           = gas ? gas.setpoint : 1.3;
     var gO2          = gas ? gas.o2 : 21;
     var gHe          = gas ? gas.he : 0;
@@ -686,7 +688,7 @@ function buildResult(data) {
     }
 
     if (data.bailout) {
-        frag.appendChild(buildBailoutScheduleCard(data, sharedXMax));
+        frag.appendChild(buildBailoutScheduleCard(data, sharedXMax, data.bottom_time_actual || btMin));
     }
 
     return frag;
@@ -704,10 +706,10 @@ function bailoutGasAtDepth(depth) {
     return sorted[sorted.length - 1];
 }
 
-function buildBailoutScheduleCard(data, xMax) {
+function buildBailoutScheduleCard(data, xMax, btActual) {
     var bailout   = data.bailout;
     var depthM    = parseFloat(document.getElementById('depth_m').value) || 0;
-    var btMin     = parseFloat(document.getElementById('bottom_time').value) || 0;
+    var btMin     = btActual != null ? btActual : (parseFloat(document.getElementById('bottom_time').value) || 0);
     var descRate  = parseFloat(document.getElementById('desc_rate').value) || 20;
     var gas       = activeGas();
     var sp        = gas ? gas.setpoint : 1.3;
@@ -821,6 +823,39 @@ function buildBailoutScheduleCard(data, xMax) {
             '<div><div class="field-label mb-1">OTU</div>' +
                 '<div style="font-size:1.05rem;font-weight:800;color:' + otuColor + ';">' + bailout.otu + '</div></div>' +
         '</div>';
+
+    if (bailout.gas_supply && bailout.gas_supply.length > 0) {
+        var supplyHtml = '<hr class="my-2"><div class="field-label mb-1">Gas Supply</div>';
+        bailout.gas_supply.forEach(function (gs) {
+            var name = gs.he > 0 ? 'Tx' + gs.o2 + '/' + gs.he : (gs.o2 === 21 ? 'Air' : gs.o2 === 100 ? 'O₂' : 'Nx' + gs.o2);
+            var pctColor = '';
+            if (gs.available_L != null) {
+                pctColor = gs.pct > 90 ? '#dc3545' : gs.pct > 70 ? '#e07000' : '';
+            }
+            supplyHtml +=
+                '<div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.8rem;">' +
+                    '<span style="font-weight:700;min-width:4.5rem;">' + name + '</span>';
+            if (gs.available_L != null) {
+                var barW = Math.min(100, gs.pct);
+                supplyHtml +=
+                    '<div style="flex:1;background:#e9ecef;border-radius:4px;height:8px;overflow:hidden;">' +
+                        '<div style="width:' + barW + '%;height:100%;background:' + (pctColor || 'var(--aqua)') + ';border-radius:4px;"></div>' +
+                    '</div>' +
+                    '<span style="min-width:5.5rem;text-align:right;color:' + (pctColor || 'var(--navy)') + ';font-weight:600;">' +
+                        gs.consumed_L + ' / ' + gs.available_L + ' L' +
+                    '</span>' +
+                    '<span style="min-width:2.5rem;text-align:right;color:' + (pctColor || 'var(--muted)') + ';font-weight:700;">' +
+                        gs.pct + '%' +
+                    '</span>';
+            } else {
+                supplyHtml +=
+                    '<span style="color:var(--muted);">' + gs.consumed_L + ' L used</span>';
+            }
+            supplyHtml += '</div>';
+        });
+        metBody.innerHTML += supplyHtml;
+    }
+
     metCard.appendChild(metBody);
 
     var hasBailoutChart = bailout.profile_points && bailout.profile_points.length > 2;
@@ -1302,8 +1337,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (savedLastStopM)      document.getElementById('last_stop_m').value      = savedLastStopM;
     var savedCnsWarnPct = getCookie('cns_warn_pct');
     if (savedCnsWarnPct) document.getElementById('cns_warn_pct').value = savedCnsWarnPct;
+    var savedSacBottom = getCookie('sac_bottom');
+    var savedSacDeco   = getCookie('sac_deco');
+    if (savedSacBottom) document.getElementById('sac_bottom').value = savedSacBottom;
+    if (savedSacDeco)   document.getElementById('sac_deco').value   = savedSacDeco;
 
-    ['gf_low', 'gf_high', 'bailout_gf_low', 'bailout_gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct'].forEach(function (id) {
+    ['gf_low', 'gf_high', 'bailout_gf_low', 'bailout_gf_high', 'desc_rate', 'asc_rate_deep', 'asc_rate_shallow', 'last_stop_m', 'cns_warn_pct', 'sac_bottom', 'sac_deco'].forEach(function (id) {
         document.getElementById(id).addEventListener('change', function () {
             setCookie(id, this.value);
         });

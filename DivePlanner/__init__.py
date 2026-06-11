@@ -84,6 +84,76 @@ def _oc_cns_otu(bailout_profile, sorted_gases):
     return round(cns, 1), round(otu, 1)
 
 
+def _compute_gas_consumption(bailout_profile, sorted_gases, sac_bottom_lpm, sac_deco_lpm):
+    """Return surface-equivalent litres consumed per gas (indexed same as sorted_gases).
+
+    sorted_gases must be sorted by mod_m ascending (shallowest MOD first).
+    Stop segments (constant depth) use sac_deco_lpm; transit segments use sac_bottom_lpm.
+    """
+    def select_idx(depth_m):
+        for i, g in enumerate(sorted_gases):
+            if depth_m <= g.mod_m:
+                return i
+        return len(sorted_gases) - 1
+
+    consumption = [0.0] * len(sorted_gases)
+    pts = bailout_profile.profile_points
+    for k in range(len(pts) - 1):
+        d1, d2 = pts[k]['d'], pts[k + 1]['d']
+        dt = pts[k + 1]['t'] - pts[k]['t']
+        if dt <= 0:
+            continue
+        avg_depth = (d1 + d2) / 2.0
+        p_abs = avg_depth / 10.0 + 1.013
+        idx = select_idx(avg_depth)
+        sac = sac_deco_lpm if abs(d1 - d2) < 0.05 else sac_bottom_lpm
+        consumption[idx] += sac * p_abs * dt
+
+    return [round(c) for c in consumption]
+
+
+def _max_bottom_time_within_gas_supply(
+    ccr_gas, depth_m, requested_bt, desc_rate_mpm,
+    oc_gases, sorted_gases, available_L,
+    gf_low, gf_high, asc_rate_deep, asc_rate_shallow, last_stop_m,
+    sac_bottom, sac_deco,
+):
+    """Binary-search for the max bottom_time_min where all gases fit cylinder supply.
+
+    available_L: list of floats indexed same as sorted_gases (math.inf = unlimited).
+    Returns (bottom_time_min, shortened: bool).
+    """
+    def fits(bt):
+        try:
+            b = plan_oc_bailout(
+                ccr_gas=ccr_gas, bottom_depth_m=depth_m, bottom_time_min=bt,
+                desc_rate_mpm=desc_rate_mpm, bailout_gases=oc_gases,
+                gf_low=gf_low, gf_high=gf_high,
+                asc_rate_deep_mpm=asc_rate_deep, asc_rate_shallow_mpm=asc_rate_shallow,
+                last_stop_m=last_stop_m,
+            )
+            consumed = _compute_gas_consumption(b, sorted_gases, sac_bottom, sac_deco)
+            return all(consumed[i] <= available_L[i] for i in range(len(sorted_gases)))
+        except Exception:
+            return False
+
+    if fits(requested_bt):
+        return requested_bt, False
+
+    lo = depth_m / desc_rate_mpm + 1.0
+    hi = requested_bt
+    for _ in range(12):
+        mid = (lo + hi) / 2.0
+        if fits(mid):
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 0.25:
+            break
+
+    return round(lo, 1), True
+
+
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('DivePlanner function processed a request.')
 
@@ -137,8 +207,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if not (0 < bailout_gf_low <= bailout_gf_high <= 1.0):
         return func.HttpResponse("Bailout GF Low must be ≤ GF High, both between 1 and 100.", status_code=400)
 
+    sac_bottom_lpm = float(body.get('sac_bottom_lpm', 20.0))
+    sac_deco_lpm   = float(body.get('sac_deco_lpm',   15.0))
+    if not (1 <= sac_bottom_lpm <= 100) or not (1 <= sac_deco_lpm <= 100):
+        return func.HttpResponse("SAC rates must be between 1 and 100 L/min.", status_code=400)
+
     # Validate bailout gases
     oc_gases = []
+    oc_gas_volumes = []   # parallel list: {cyl_l, cyl_bar} per gas (None if not supplied)
     for i, g in enumerate(bailout_gases_raw):
         try:
             o2 = float(g['o2'])
@@ -150,12 +226,48 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(f"Invalid composition for bailout gas {i}.", status_code=400)
         if mod_m <= 0:
             return func.HttpResponse(f"Bailout gas {i} MOD must be positive.", status_code=400)
+        try:
+            cyl_l   = float(g['cyl_l'])   if g.get('cyl_l')   else None
+            cyl_bar = float(g['cyl_bar']) if g.get('cyl_bar') else None
+        except (TypeError, ValueError):
+            cyl_l, cyl_bar = None, None
         oc_gases.append(OpenCircuitGas(o2, he, mod_m))
+        oc_gas_volumes.append({'cyl_l': cyl_l, 'cyl_bar': cyl_bar})
+
+    # Check gas supply limits before planning — may shorten bottom_time_min
+    bottom_time_actual = bottom_time_min
+    bottom_time_shortened = False
+    if oc_gases:
+        sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
+        sorted_volumes = sorted(
+            zip(oc_gases, oc_gas_volumes), key=lambda x: x[0].mod_m
+        )
+        available_L = [
+            (v['cyl_l'] * v['cyl_bar']) if (v['cyl_l'] and v['cyl_bar']) else math.inf
+            for _, v in sorted_volumes
+        ]
+        if any(a < math.inf for a in available_L):
+            bottom_time_actual, bottom_time_shortened = _max_bottom_time_within_gas_supply(
+                ccr_gas=CCRGas(diluent_o2, diluent_he, setpoint),
+                depth_m=depth_m,
+                requested_bt=bottom_time_min,
+                desc_rate_mpm=desc_rate_mpm,
+                oc_gases=oc_gases,
+                sorted_gases=sorted_gases,
+                available_L=available_L,
+                gf_low=bailout_gf_low,
+                gf_high=bailout_gf_high,
+                asc_rate_deep=asc_rate_deep_mpm,
+                asc_rate_shallow=asc_rate_shallow_mpm,
+                last_stop_m=last_stop_m,
+                sac_bottom=sac_bottom_lpm,
+                sac_deco=sac_deco_lpm,
+            )
 
     try:
         gas = CCRGas(diluent_o2, diluent_he, setpoint)
         profile = plan_ccr_dive(
-            gas, depth_m, bottom_time_min, gf_low, gf_high,
+            gas, depth_m, bottom_time_actual, gf_low, gf_high,
             desc_rate_mpm=desc_rate_mpm,
             asc_rate_deep_mpm=asc_rate_deep_mpm,
             asc_rate_shallow_mpm=asc_rate_shallow_mpm,
@@ -203,8 +315,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             ),
         })
 
-    # TTS = time from ascent start to surface (bottom_time_min is run time when ascent begins)
-    tts_min = round(max(0.0, profile.total_time_min - bottom_time_min), 1)
+    if bottom_time_shortened:
+        warnings.append({
+            'level': 'warning',
+            'message': (
+                f'Bottom time shortened from {bottom_time_min:.0f} min to {bottom_time_actual:.1f} min '
+                f'— insufficient bailout gas supply for the requested dive time.'
+            ),
+        })
+
+    # TTS = time from ascent start to surface (bottom_time_actual is run time when ascent begins)
+    tts_min = round(max(0.0, profile.total_time_min - bottom_time_actual), 1)
     cns_pct = round(_cns_rate(setpoint) * profile.total_time_min, 1)
     otu = round(_otu_rate(setpoint) * profile.total_time_min, 1)
 
@@ -271,7 +392,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             bailout = plan_oc_bailout(
                 ccr_gas=gas,
                 bottom_depth_m=depth_m,
-                bottom_time_min=bottom_time_min,
+                bottom_time_min=bottom_time_actual,
                 desc_rate_mpm=desc_rate_mpm,
                 bailout_gases=oc_gases,
                 gf_low=bailout_gf_low,
@@ -281,8 +402,28 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 last_stop_m=last_stop_m,
             )
             sorted_oc = sorted(oc_gases, key=lambda g: g.mod_m)
+            sorted_oc_volumes = sorted(
+                zip(oc_gases, oc_gas_volumes), key=lambda x: x[0].mod_m
+            )
             bailout_cns, bailout_otu = _oc_cns_otu(bailout, sorted_oc)
             bailout_tts = round(bailout.total_time_min, 1)
+
+            gas_supply = None
+            if any(v['cyl_l'] and v['cyl_bar'] for _, v in sorted_oc_volumes):
+                consumed = _compute_gas_consumption(bailout, sorted_oc, sac_bottom_lpm, sac_deco_lpm)
+                gas_supply = []
+                for i, (g, v) in enumerate(sorted_oc_volumes):
+                    entry = {
+                        'o2': round(g.fo2 * 100),
+                        'he': round(g.fhe * 100),
+                        'mod_m': g.mod_m,
+                        'consumed_L': consumed[i],
+                    }
+                    if v['cyl_l'] and v['cyl_bar']:
+                        entry['available_L'] = round(v['cyl_l'] * v['cyl_bar'])
+                        entry['pct'] = round(consumed[i] / entry['available_L'] * 100)
+                    gas_supply.append(entry)
+
             bailout_response = {
                 'stops': [
                     {
@@ -299,6 +440,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 'gas_switches': bailout.gas_switches,
                 'profile_points': bailout.profile_points,
                 'tissue_saturations': bailout.tissue_saturations,
+                'gas_supply': gas_supply,
             }
         except Exception as e:
             logging.exception("Bailout planning error")
@@ -321,6 +463,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         'tts_min': tts_min,
         'cns_pct': cns_pct,
         'otu': otu,
+        'bottom_time_actual': bottom_time_actual,
         'bailout': bailout_response,
     }
 
