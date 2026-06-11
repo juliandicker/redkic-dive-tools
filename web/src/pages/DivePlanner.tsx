@@ -374,14 +374,14 @@ export default function DivePlanner() {
       />
 
       <div className="container pb-5">
-        <div className="row g-3">
-          {/* Left column: gas library + bailout library */}
-          <div className="col-lg-4">
-            {/* Diluent gas library */}
-            <div className="card mb-3">
+        {/* Top row: 3 equal columns */}
+        <div className="row g-3 mb-4">
+          {/* Diluent gas library */}
+          <div className="col-md-4">
+            <div className="card h-100">
               <div className="card-body">
                 <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="card-section-title mb-0">Diluent Gas</div>
+                  <div className="card-section-title mb-0">Diluent Gases</div>
                   <button className="btn-add-gas" onClick={() => openGasModal(false)} title="Add gas">
                     <i className="bi bi-plus" />
                   </button>
@@ -399,46 +399,11 @@ export default function DivePlanner() {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Dive inputs */}
-            <div className="card mb-3">
-              <div className="card-body">
-                <div className="card-section-title">Dive Parameters</div>
-                <div className="d-flex flex-column gap-2">
-                  <div className="input-group input-group-sm">
-                    <span className="input-group-text">Depth</span>
-                    <input type="number" className="form-control" min={5} max={300} value={depth}
-                      onChange={e => setDepth(parseInt(e.target.value) || 0)} />
-                    <span className="input-group-text">m</span>
-                  </div>
-                  <div className="input-group input-group-sm">
-                    <span className="input-group-text">Bottom time</span>
-                    <input type="number" className="form-control" min={1} max={999} value={bt}
-                      onChange={e => setBt(parseInt(e.target.value) || 0)} />
-                    <span className="input-group-text">min</span>
-                  </div>
-                  <div className="d-flex gap-2">
-                    <div className="input-group input-group-sm flex-grow-1">
-                      <span className="input-group-text">GF Low</span>
-                      <input type="number" className="form-control" min={1} max={100}
-                        value={settings.gfLow}
-                        onChange={e => setSettings(prev => ({ ...prev, gfLow: parseInt(e.target.value) || 60 }))} />
-                      <span className="input-group-text">%</span>
-                    </div>
-                    <div className="input-group input-group-sm flex-grow-1">
-                      <span className="input-group-text">GF High</span>
-                      <input type="number" className="form-control" min={1} max={100}
-                        value={settings.gfHigh}
-                        onChange={e => setSettings(prev => ({ ...prev, gfHigh: parseInt(e.target.value) || 80 }))} />
-                      <span className="input-group-text">%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bailout library */}
-            <div className="card mb-3">
+          {/* Bailout library */}
+          <div className="col-md-4">
+            <div className="card h-100">
               <div className="card-body">
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <div className="card-section-title mb-0">Bailout Gases</div>
@@ -461,73 +426,91 @@ export default function DivePlanner() {
             </div>
           </div>
 
-          {/* Right column: results */}
-          <div className="col-lg-8">
-            {!activeGas && (
-              <div className="alert alert-info rounded-3">Select a diluent gas to plan a dive.</div>
-            )}
-            {loading && (
-              <div className="loading-spinner text-center py-3">
-                <div className="spinner-border" />
-                <div className="text-muted mt-1">Calculating…</div>
-              </div>
-            )}
-            {error && <div className="alert alert-danger rounded-3">{error}</div>}
-
-            {result && activeGas && (
-              <>
-                <div className="d-flex justify-content-end mb-2">
-                  <button className="btn btn-sm btn-outline-secondary" onClick={openSavePlan}>
-                    <i className="bi bi-bookmark-plus me-1" />Save plan
+          {/* Dive inputs + Calculate button */}
+          <div className="col-md-4">
+            <div className="card h-100">
+              <div className="card-body">
+                <div className="card-section-title">Dive Parameters</div>
+                <div className="d-flex flex-column gap-2">
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">Depth</span>
+                    <input type="number" className="form-control" min={5} max={300} value={depth}
+                      onChange={e => setDepth(parseInt(e.target.value) || 0)} />
+                    <span className="input-group-text">m</span>
+                  </div>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">Bottom time</span>
+                    <input type="number" className="form-control" min={1} max={999} value={bt}
+                      onChange={e => setBt(parseInt(e.target.value) || 0)} />
+                    <span className="input-group-text">min</span>
+                  </div>
+                  <button className="btn btn-apply w-100 mt-1" onClick={calculate} disabled={!activeGas || loading}>
+                    Calculate Decompression
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        {/* Results — full width below */}
+        {!activeGas && (
+          <div className="alert alert-info rounded-3">Select a diluent gas to plan a dive.</div>
+        )}
+        {loading && (
+          <div className="loading-spinner text-center py-3">
+            <div className="spinner-border" />
+            <div className="text-muted mt-1">Planning decompression…</div>
+          </div>
+        )}
+        {error && <div className="alert alert-danger rounded-3">{error}</div>}
+
+        {result && activeGas && (
+          <>
+            <PlanSection
+              title="Decompression Schedule"
+              decoStops={result.stops}
+              totalTimeMin={result.total_time_min}
+              ttsMin={result.tts_min}
+              cnsPct={result.cns_pct}
+              otu={result.otu}
+              profilePoints={result.profile_points}
+              tissueSaturations={result.tissue_saturations}
+              gasSwitches={[]}
+              gasSupply={null}
+              warnings={result.warnings}
+              gfHigh={settings.gfHigh}
+              diluent={activeGas}
+              depthM={depth}
+              btMin={result.bottom_time_actual ?? bt}
+              descRate={settings.descRate}
+            />
+
+            {result.bailout && (
+              <div className="mt-4">
                 <PlanSection
-                  title="Decompression Schedule"
-                  decoStops={result.stops}
-                  totalTimeMin={result.total_time_min}
-                  ttsMin={result.tts_min}
-                  cnsPct={result.cns_pct}
-                  otu={result.otu}
-                  profilePoints={result.profile_points}
-                  tissueSaturations={result.tissue_saturations}
-                  densityAnalysis={result.density_analysis}
-                  gasSwitches={[]}
-                  gasSupply={null}
-                  warnings={result.warnings}
-                  gfHigh={settings.gfHigh}
+                  title="Bailout Schedule"
+                  decoStops={result.bailout.stops}
+                  totalTimeMin={result.bailout.total_time_min}
+                  ttsMin={result.bailout.tts_min}
+                  cnsPct={result.bailout.cns_pct}
+                  otu={result.bailout.otu}
+                  profilePoints={result.bailout.profile_points}
+                  tissueSaturations={result.bailout.tissue_saturations}
+                  gasSwitches={result.bailout.gas_switches}
+                  gasSupply={result.bailout.gas_supply}
+                  warnings={[]}
+                  gfHigh={settings.bailoutGfHigh}
                   diluent={activeGas}
                   depthM={depth}
                   btMin={result.bottom_time_actual ?? bt}
                   descRate={settings.descRate}
+                  isBailout
                 />
-
-                {result.bailout && (
-                  <PlanSection
-                    title="Bailout Schedule"
-                    decoStops={result.bailout.stops}
-                    totalTimeMin={result.bailout.total_time_min}
-                    ttsMin={result.bailout.tts_min}
-                    cnsPct={result.bailout.cns_pct}
-                    otu={result.bailout.otu}
-                    profilePoints={result.bailout.profile_points}
-                    tissueSaturations={result.bailout.tissue_saturations}
-                    densityAnalysis={null}
-                    gasSwitches={result.bailout.gas_switches}
-                    gasSupply={result.bailout.gas_supply}
-                    warnings={[]}
-                    gfHigh={settings.bailoutGfHigh}
-                    diluent={activeGas}
-                    depthM={depth}
-                    btMin={result.bottom_time_actual ?? bt}
-                    descRate={settings.descRate}
-                    isBailout
-                  />
-                )}
-              </>
+              </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       <footer className="app-footer">

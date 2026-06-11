@@ -6,7 +6,7 @@ import {
   type ChartData, type ChartOptions,
 } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
-import type { DecoStop, ProfilePoint, DensityAnalysis, GasSwitch, GasSupplyEntry, Warning } from '../types'
+import type { DecoStop, ProfilePoint, GasSwitch, GasSupplyEntry, Warning } from '../types'
 import { surfaceDensity, gasName } from '../utils'
 
 ChartJS.register(
@@ -23,7 +23,6 @@ interface PlanSectionProps {
   otu: number
   profilePoints: ProfilePoint[]
   tissueSaturations: number[]
-  densityAnalysis: DensityAnalysis | null
   gasSwitches: GasSwitch[]
   gasSupply: GasSupplyEntry[] | null
   warnings: Warning[]
@@ -37,7 +36,7 @@ interface PlanSectionProps {
 
 export default function PlanSection({
   title, decoStops, totalTimeMin, ttsMin, cnsPct, otu,
-  profilePoints, tissueSaturations, densityAnalysis, gasSwitches,
+  profilePoints, tissueSaturations, gasSwitches,
   gasSupply, warnings, gfHigh, diluent, depthM, btMin, descRate, isBailout,
 }: PlanSectionProps) {
   const [hoveredSats, setHoveredSats] = useState<number[] | null>(null)
@@ -127,9 +126,7 @@ export default function PlanSection({
     animation: false,
   }
 
-  const tissueTitle = hoveredSats
-    ? 'Tissue loading at hover'
-    : 'Tissue loading — surface'
+  const tissueTitle = hoveredSats ? 'Tissue loading at hover' : 'Tissue loading — surface'
 
   const tissueData: ChartData<'bar'> = {
     labels: Array.from({ length: 16 }, (_, i) => `C${i + 1}`),
@@ -183,168 +180,171 @@ export default function PlanSection({
   const otuColor = otu > 250    ? '#dc3545' : otu > 150   ? '#e07000' : 'var(--navy)'
 
   return (
-    <div className="mb-4">
+    <div>
       {warnings.map((w, i) => (
         <div key={i} className={`alert alert-${w.level === 'error' ? 'danger' : 'warning'} rounded-3 density-warning mb-3`}>
           {w.message}
         </div>
       ))}
 
-      <div className="mb-1"><span className="result-heading">{title}</span></div>
+      <div className="row g-3 align-items-start">
+        {/* Left col: heading + schedule table + metrics */}
+        <div className="col-12 col-lg-5">
+          <div className="mb-1"><span className="result-heading">{title}</span></div>
 
-      {/* Metrics */}
-      <div className="card mb-3">
-        <div className="card-body py-2 px-3">
-          <div className="d-flex justify-content-around text-center">
-            {[
-              { label: 'Runtime', val: `${totalTimeMin} min`, color: 'var(--ocean)' },
-              { label: 'TTS',     val: `${ttsMin} min`,      color: 'var(--ocean)' },
-              { label: 'CNS',     val: `${cnsPct}%`,          color: cnsColor },
-              { label: 'OTU',     val: `${otu}`,              color: otuColor },
-            ].map(({ label, val, color }) => (
-              <div key={label}>
-                <div className="field-label mb-1">{label}</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color }}>{val}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Schedule table */}
-      <div className="card mb-3">
-        <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-sm mb-0 deco-table">
-              <thead>
-                <tr>
-                  <th className="ps-2" style={{ width: '2rem' }} />
-                  <th>Depth</th><th>T</th><th>RT</th>
-                  <th>ppO₂</th><th>g/L</th><th>Gas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* Descent */}
-                {!isBailout && (
-                  <tr>
-                    <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
-                    <td>0→{depth}m</td>
-                    <td>{descTime}</td>
-                    <td>{descTime}</td>
-                    <td>{sp.toFixed(2)}</td>
-                    <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
-                    <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)} · SP {sp}</td>
-                  </tr>
-                )}
-                {/* Bottom */}
-                {!isBailout && (
-                  <tr>
-                    <td className="ps-2"><i className="bi bi-dash" style={{ color: '#0077b6' }} /></td>
-                    <td>{depth} m</td>
-                    <td>{flatBt}</td>
-                    <td>{Math.round(bt)}</td>
-                    <td>{sp.toFixed(2)}</td>
-                    <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
-                    <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)} · SP {sp}</td>
-                  </tr>
-                )}
-                {/* Gas switches */}
-                {gasSwitches.map((sw, i) => (
-                  <tr key={`sw${i}`} style={{ background: '#f0f8ff' }}>
-                    <td className="ps-2"><i className="bi bi-arrow-repeat" style={{ color: 'var(--aqua)' }} /></td>
-                    <td>{sw.depth_m} m</td>
-                    <td>—</td><td>—</td><td>—</td><td>—</td>
-                    <td style={{ fontSize: '0.78rem', color: 'var(--ocean)', fontWeight: 700 }}>→ {sw.label}</td>
-                  </tr>
-                ))}
-                {/* Deco stops */}
-                {decoStops.map((stop, i) => {
-                  const isLast = i === decoStops.length - 1
-                  const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, gas)
-                  const dens = (surfaceDensity(gasAtStop.o2, gasAtStop.he) * (stop.depth_m / 10 + 1)).toFixed(2)
-                  const densNum = parseFloat(dens)
-                  const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
-                  const ppO2 = isBailout
-                    ? ((gasAtStop.o2 / 100) * (stop.depth_m / 10 + 1)).toFixed(2)
-                    : sp.toFixed(2)
-                  return (
-                    <tr key={i}>
-                      <td className="ps-2">
-                        <i className={`bi bi-${isLast ? 'arrow-up-circle' : 'clock'}`}
-                          style={{ color: isLast ? '#2a7a46' : 'var(--muted)' }} />
-                      </td>
-                      <td>{stop.depth_m} m</td>
-                      <td>{stop.time_min}</td>
-                      <td>{stop.runtime_min}</td>
-                      <td>{ppO2}</td>
-                      <td style={densColor ? { color: densColor } : {}}>{dens}</td>
-                      <td style={{ fontSize: '0.78rem' }}>{gasAtStop.name}</td>
+          {/* Schedule table */}
+          <div className="card mb-0">
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-sm mb-0 deco-table">
+                  <thead>
+                    <tr>
+                      <th className="ps-2" style={{ width: '2rem' }} />
+                      <th>Depth</th><th>T</th><th>RT</th>
+                      <th>ppO₂</th><th>g/L</th><th>Gas</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {!isBailout && (
+                      <tr>
+                        <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
+                        <td>0→{depth}m</td>
+                        <td>{descTime}</td>
+                        <td>{descTime}</td>
+                        <td>{sp.toFixed(2)}</td>
+                        <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                      </tr>
+                    )}
+                    {!isBailout && (
+                      <tr>
+                        <td className="ps-2"><i className="bi bi-circle-fill" style={{ color: '#03045e', fontSize: '0.55em', verticalAlign: 'middle' }} /></td>
+                        <td>{depth} m</td>
+                        <td>{flatBt}</td>
+                        <td>{Math.round(bt)}</td>
+                        <td>{sp.toFixed(2)}</td>
+                        <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                      </tr>
+                    )}
+                    {gasSwitches.map((sw, i) => (
+                      <tr key={`sw${i}`} style={{ background: '#f0f8ff' }}>
+                        <td className="ps-2"><i className="bi bi-arrow-repeat" style={{ color: 'var(--aqua)' }} /></td>
+                        <td>{sw.depth_m} m</td>
+                        <td>—</td><td>—</td><td>—</td><td>—</td>
+                        <td style={{ fontSize: '0.78rem', color: 'var(--ocean)', fontWeight: 700 }}>→ {sw.label}</td>
+                      </tr>
+                    ))}
+                    {decoStops.map((stop, i) => {
+                      const isLast = i === decoStops.length - 1
+                      const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, gas)
+                      const dens = (surfaceDensity(gasAtStop.o2, gasAtStop.he) * (stop.depth_m / 10 + 1)).toFixed(2)
+                      const densNum = parseFloat(dens)
+                      const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
+                      const ppO2 = isBailout
+                        ? ((gasAtStop.o2 / 100) * (stop.depth_m / 10 + 1)).toFixed(2)
+                        : sp.toFixed(2)
+                      return (
+                        <tr key={i}>
+                          <td className="ps-2">
+                            <i
+                              className={`bi bi-arrow-up-circle`}
+                              style={{ color: isLast ? '#198754' : '#e07000' }}
+                            />
+                          </td>
+                          <td>{stop.depth_m} m</td>
+                          <td>{stop.time_min}</td>
+                          <td>{stop.runtime_min}</td>
+                          <td>{ppO2}</td>
+                          <td style={densColor ? { color: densColor } : {}}>{dens}</td>
+                          <td style={{ fontSize: '0.78rem' }}>{gasAtStop.name}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Charts */}
-      <div className="chart-wrap mb-3" ref={chartWrapRef}>
-        <div className="chart-header">
-          <span className="result-heading" style={{ marginBottom: 0, borderBottom: 'none' }}>{title}</span>
-          <button className="chart-fs-btn" onClick={toggleFullscreen} title="Full screen">
-            <i className={`bi bi-fullscreen${isFullscreen ? '-exit' : ''}`} />
-          </button>
-        </div>
-        <div
-          className="profile-canvas"
-          style={{ height: 260, position: 'relative' }}
-          onMouseMove={handleProfileHover}
-          onMouseLeave={resetHover}
-        >
-          <Line ref={profileRef} data={profileData} options={profileOptions} />
-        </div>
-        <div style={{ height: 200, position: 'relative', marginTop: 8 }}>
-          <Bar data={tissueData} options={tissueOptions} />
-        </div>
-      </div>
+          {/* Metrics + gas supply */}
+          <div className="card mt-3">
+            <div className="card-body py-2 px-3">
+              <div className="d-flex justify-content-around text-center">
+                {[
+                  { label: 'Runtime', val: `${totalTimeMin} min`, color: 'var(--ocean)' },
+                  { label: 'TTS',     val: `${ttsMin} min`,       color: 'var(--ocean)' },
+                  { label: 'CNS',     val: `${cnsPct}%`,           color: cnsColor },
+                  { label: 'OTU',     val: `${otu}`,               color: otuColor },
+                ].map(({ label, val, color }) => (
+                  <div key={label}>
+                    <div className="field-label mb-1">{label}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
 
-      {/* Density analysis (single entry) */}
-      {densityAnalysis && (
-        <div className="card mb-3">
-          <div className="card-body py-2 px-3">
-            <div className="card-section-title">Gas Density</div>
-            <div className="analysis-row">
-              <span className="analysis-label">Diluent at depth</span>
-              <span className={`analysis-depth ${densityAnalysis.exceeded_limit ? 'text-danger' : densityAnalysis.exceeded_recommended ? 'text-warning' : ''}`}>
-                {densityAnalysis.density_gl.toFixed(2)} g/L
-              </span>
+              {gasSupply && gasSupply.length > 0 && (
+                <>
+                  <hr className="my-2" />
+                  <div className="field-label mb-1">Gas Supply</div>
+                  {gasSupply.map((gs, i) => {
+                    const pctColor = gs.available_L != null
+                      ? (gs.pct! > 90 ? '#dc3545' : gs.pct! > 70 ? '#e07000' : '')
+                      : ''
+                    const barW = gs.pct != null ? Math.min(100, gs.pct) : 0
+                    return (
+                      <div key={i} className="d-flex align-items-center gap-2 mb-1" style={{ fontSize: '0.8rem' }}>
+                        <span style={{ fontWeight: 700, minWidth: '4.5rem' }}>{gasName(gs.o2, gs.he)}</span>
+                        {gs.available_L != null ? (
+                          <>
+                            <div style={{ flex: 1, background: '#e9ecef', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                              <div style={{ width: `${barW}%`, height: '100%', background: pctColor || 'var(--aqua)', borderRadius: 4 }} />
+                            </div>
+                            <span style={{ minWidth: '5.5rem', textAlign: 'right', color: pctColor || 'var(--navy)', fontWeight: 600 }}>
+                              {Math.round(gs.consumed_L)} / {Math.round(gs.available_L)} L
+                            </span>
+                            <span style={{ minWidth: '2.5rem', textAlign: 'right', color: pctColor || 'var(--muted)', fontWeight: 700 }}>
+                              {Math.round(gs.pct!)}%
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>
+                            {Math.round(gs.consumed_L)} L (no cylinder data)
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Gas supply */}
-      {gasSupply && gasSupply.length > 0 && (
-        <div className="card mb-3">
-          <div className="card-body py-2 px-3">
-            <div className="card-section-title">Gas Supply</div>
-            {gasSupply.map((g, i) => {
-              const feasible = g.available_L == null || g.consumed_L <= g.available_L
-              return (
-                <div key={i} className={`analysis-row${!feasible ? ' text-danger' : ''}`}>
-                  <span className="analysis-label">{gasName(g.o2, g.he)}</span>
-                  <span className="analysis-depth" style={{ fontSize: '0.8rem' }}>
-                    {Math.round(g.consumed_L)} L used
-                    {g.available_L != null && ` / ${Math.round(g.available_L)} L avail`}
-                    {g.pct != null && ` (${Math.round(g.pct)}%)`}
-                  </span>
-                </div>
-              )
-            })}
+        {/* Right col: charts */}
+        <div className="col-12 col-lg-7">
+          <div className="chart-wrap" ref={chartWrapRef}>
+            <div className="chart-header">
+              <span className="result-heading" style={{ marginBottom: 0, borderBottom: 'none' }}>{title}</span>
+              <button className="chart-fs-btn" onClick={toggleFullscreen} title="Full screen">
+                <i className={`bi bi-fullscreen${isFullscreen ? '-exit' : ''}`} />
+              </button>
+            </div>
+            <div
+              className="profile-canvas"
+              style={{ height: 260, position: 'relative' }}
+              onMouseMove={handleProfileHover}
+              onMouseLeave={resetHover}
+            >
+              <Line ref={profileRef} data={profileData} options={profileOptions} />
+            </div>
+            <div style={{ height: 200, position: 'relative', marginTop: 8 }}>
+              <Bar data={tissueData} options={tissueOptions} />
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
