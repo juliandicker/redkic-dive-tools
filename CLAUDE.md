@@ -15,9 +15,9 @@ GasBlender/
 ├── DivePlanner/__init__.py   # Helper module: CNS/OTU rates, gas consumption, binary search (tests import from here)
 ├── planner/
 │   ├── buhlmann.py           # ZHL-16C: Schreiner equation, GF ceiling, tissue saturations
-│   ├── dive.py               # CCR dive planner: descent, deco grid, profile points
-│   └── gas.py                # CCRGas: pp_n2 / pp_he respecting setpoint
-├── tests/                    # Unit tests (pytest) — 213 tests total
+│   ├── dive.py               # CCR dive planner + OC bailout: descent, deco grid, profile points
+│   └── gas.py                # CCRGas / OpenCircuitGas: pp_n2 / pp_he for each circuit type
+├── tests/                    # Unit tests (pytest) — 225 tests total
 ├── gas_blender.py            # Core blending logic — single source of truth
 ├── web/                      # React/Vite frontend (TypeScript)
 │   ├── src/
@@ -82,7 +82,7 @@ cd web && npm run dev                 # Vite dev server on :8080
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
-213 tests: 28 covering `Gas`, `BlendStep`, `TrimixBlend`, `topup_blend`; 3 covering OpenAPI schema generation; the rest cover the Bühlmann model, CCR dive planner, and OVM cross-validation.
+225 tests: 28 covering `Gas`, `BlendStep`, `TrimixBlend`, `topup_blend`; 3 covering OpenAPI schema generation; the rest cover the Bühlmann model, CCR dive planner, OVM CCR cross-validation, and OVM OC bailout cross-validation.
 
 ## Pre-approved permissions
 

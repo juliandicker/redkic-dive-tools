@@ -5,7 +5,7 @@ Two tools for technical diving, built on Python Azure Functions and a static HTM
 | Tool | Description |
 |------|-------------|
 | **Gas Blender** | Trimix fill-sequence calculator — given a start cylinder and target mix, computes He → O₂ → air top-up steps |
-| **Dive Planner** | Bühlmann ZHL-16C CCR decompression planner with gas density analysis, tissue saturation chart, and OTU/CNS tracking |
+| **Dive Planner** | Bühlmann ZHL-16C CCR decompression planner with GF Low/High, OC bailout planning, gas density analysis, tissue saturation chart, and OTU/CNS tracking |
 
 ## Project structure
 
@@ -16,14 +16,17 @@ GasBlender/
 │   └── __init__.py         # Helper module: CNS/OTU rates, gas consumption, binary search
 ├── planner/
 │   ├── buhlmann.py         # ZHL-16C model: Schreiner equation, GF ceiling, tissue saturations
-│   ├── dive.py             # CCR dive planner: descent, deco grid, profile points
-│   └── gas.py              # CCRGas: pp_n2 / pp_he respecting setpoint
+│   ├── dive.py             # CCR dive planner + OC bailout: descent, deco grid, profile points
+│   └── gas.py              # CCRGas / OpenCircuitGas: pp_n2 / pp_he for each circuit type
 ├── tests/
-│   ├── test_gas_blender.py     # 28 gas blender tests
-│   ├── test_buhlmann.py        # Bühlmann model unit tests
-│   ├── test_planner.py         # Dive planner integration tests
-│   ├── test_ovm_crossval.py    # OVM cross-validation (reference dives)
-│   └── test_openapi.py         # OpenAPI schema generation tests
+│   ├── test_gas_blender.py          # 28 gas blender tests
+│   ├── test_buhlmann.py             # Bühlmann model unit tests
+│   ├── test_planner.py              # Dive planner integration tests
+│   ├── ovm_reference.py             # OVM CCR reference data (Playwright-recorded)
+│   ├── test_ovm_crossval.py         # OVM CCR cross-validation
+│   ├── ovm_bailout_reference.py     # OVM OC bailout reference data (Playwright-recorded)
+│   ├── test_ovm_bailout_crossval.py # OVM OC bailout cross-validation
+│   └── test_openapi.py              # OpenAPI schema generation tests
 ├── infra/
 │   ├── main.bicep          # Subscription-scoped Bicep — resource group + all resources
 │   ├── main.bicepparam
@@ -123,7 +126,7 @@ cd web && npm run dev    # Vite dev server on :8080
 
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v   # 213 tests
+pytest tests/ -v   # 225 tests
 ```
 
 ## Gas blending logic
