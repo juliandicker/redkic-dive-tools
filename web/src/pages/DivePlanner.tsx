@@ -368,7 +368,9 @@ export default function DivePlanner() {
   const { o2: mO2, he: mHe } = gasModal
   const mLimRec   = densityLimitDepth(mO2, mHe, 5.2)
   const mLimUpper = densityLimitDepth(mO2, mHe, 6.3)
-  const mAutoMod  = bailoutAutoMod(mO2)
+  const mAutoMod  = mO2 > 0
+    ? Math.max(3, Math.floor((gasModal.bmPpO2 / (mO2 / 100) - 1) * 10 / 3) * 3)
+    : 150
 
   // ── Sorted libraries ─────────────────────────────────────────────────────────
 
@@ -666,7 +668,7 @@ export default function DivePlanner() {
               <div className="mb-2">
                 <label className="field-label">
                   MOD <span className="text-muted" style={{ fontWeight: 400, fontSize: '0.65rem' }}>
-                    (auto at 1.4 bar ppO₂: {mAutoMod} m)
+                    (auto at {gasModal.bmPpO2.toFixed(1)} bar ppO₂: {mAutoMod} m)
                   </span>
                 </label>
                 <div className="input-group input-group-sm">
