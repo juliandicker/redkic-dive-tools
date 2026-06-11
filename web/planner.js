@@ -126,7 +126,7 @@ function renderLibrary(isBailout) {
     var container = document.getElementById(isBailout ? 'bailout_library' : 'gas_library');
     container.innerHTML = '';
     lib.slice().sort(function (a, b) {
-        return a.o2 !== b.o2 ? a.o2 - b.o2 : a.he - b.he;
+        return a.o2 !== b.o2 ? b.o2 - a.o2 : a.he - b.he;
     }).forEach(function (gas) {
         container.appendChild(buildGasCard(gas, isBailout));
     });
@@ -138,15 +138,24 @@ function buildGasCard(gas, isBailout) {
     var name = gasName(o2, he);
     var limRec   = densityLimitDepth(o2, he, 5.2);
     var limUpper = densityLimitDepth(o2, he, 6.3);
-    var infoLine, deleteFn;
+    var infoLine, infoStyle, deleteFn;
     if (isBailout) {
-        infoLine = gas.mod_m <= limRec
+        var modLine = gas.mod_m <= limRec
             ? 'MOD ' + gas.mod_m + ' m'
             : limRec + ' m – ' + limUpper + ' m';
+        if (gas.cyl_l && gas.cyl_bar) {
+            var reserveBar = parseFloat(document.getElementById('reserve_bar').value) || 50;
+            var usable = Math.round(gas.cyl_l * Math.max(0, gas.cyl_bar - reserveBar));
+            infoLine  = modLine + '<br>' + gas.cyl_l + ' L / ' + gas.cyl_bar + ' bar · ' + usable + ' L';
+        } else {
+            infoLine = modLine;
+        }
+        infoStyle = 'white-space:normal;';
         deleteFn = 'confirmDeleteBailoutGas';
     } else {
-        infoLine = limRec + ' m – ' + limUpper + ' m · SP ' + gas.setpoint + ' bar';
-        deleteFn = 'confirmDeleteGas';
+        infoLine  = limRec + ' m – ' + limUpper + ' m · SP ' + gas.setpoint + ' bar';
+        infoStyle = '';
+        deleteFn  = 'confirmDeleteGas';
     }
 
     var card = document.createElement('div');
@@ -154,22 +163,10 @@ function buildGasCard(gas, isBailout) {
     card.style.cursor = 'pointer';
     card.onclick = function() { isBailout ? toggleBailoutGas(gas.id) : selectGas(gas.id); };
 
-    var cylFooter = '';
-    if (isBailout && gas.cyl_l && gas.cyl_bar) {
-        var reserveBar = parseFloat(document.getElementById('reserve_bar').value) || 50;
-        var usable = Math.round(gas.cyl_l * Math.max(0, gas.cyl_bar - reserveBar));
-        cylFooter =
-            '<div style="display:flex;justify-content:space-between;align-items:baseline;' +
-                    'font-size:0.62rem;color:var(--muted);margin-top:0.15rem;">' +
-                '<span>' + gas.cyl_l + ' L / ' + gas.cyl_bar + ' bar</span>' +
-                '<span style="font-weight:600;">' + usable + ' L</span>' +
-            '</div>';
-    }
-
     card.innerHTML =
         '<div class="gas-card-top">' +
             '<span class="gas-card-name">' + name + '</span>' +
-            '<span class="gas-card-info">' + infoLine + '</span>' +
+            '<span class="gas-card-info" style="' + infoStyle + '">' + infoLine + '</span>' +
             '<span>' +
                 '<i class="bi bi-' + (gas.active ? 'check-circle-fill' : 'circle') + ' btn-gas-action"' + (gas.active ? ' style="color:var(--aqua)"' : '') + '></i>' +
                 '<button class="btn-gas-action" onclick="event.stopPropagation();openGasModal(' + isBailout + ',' + gas.id + ')" title="Edit"><i class="bi bi-pencil"></i></button>' +
@@ -180,8 +177,7 @@ function buildGasCard(gas, isBailout) {
             '<div class="gas-bar-o2" style="width:' + o2 + '%"></div>' +
             '<div class="gas-bar-he" style="width:' + he + '%"></div>' +
             '<div class="gas-bar-n2" style="width:' + n2 + '%"></div>' +
-        '</div>' +
-        cylFooter;
+        '</div>';
 
     return card;
 }
