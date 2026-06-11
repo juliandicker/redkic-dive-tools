@@ -258,14 +258,20 @@ export default function DivePlanner() {
     const { bmDepth, bmSp, dlUpper, isBailout, bmPpO2 } = gasModal
     if (isBailout) {
       const amb = bmDepth / 10 + 1
-      let o2 = Math.floor((bmPpO2 / amb) * 100)
-      while (o2 > 0 && bailoutAutoMod(o2) < bmDepth) o2--
+      // O2: maximum fraction that keeps ppO₂ ≤ slider value at target depth
+      const o2 = Math.floor(Math.min(1, bmPpO2 / amb) * 100)
+      const fO2 = o2 / 100
       const densLim = dlUpper ? 6.3 : 5.2
-      const mix = bestMix(bmDepth, bmPpO2 / (bmDepth / 10 + 1), densLim)
+      // He: solve density equation for fHe given fO2 (fN2 = 1 − fO2 − fHe)
+      // ρ_surf·amb ≤ densLim  →  fHe = (1.25 + fO2·0.1786 − densLim/amb) / 1.0714
+      const rawFHe = (1.25 + fO2 * 0.1786 - densLim / amb) / 1.0714
+      const he = Math.max(0, Math.ceil(Math.max(0, rawFHe) * 20) * 5)
+      // MOD = shallower of: ppO₂ MOD (using slider ppO₂) and density MOD
+      const ppO2Mod = fO2 > 0 ? Math.round((bmPpO2 / fO2 - 1) * 10) : 150
+      const mod = Math.min(ppO2Mod, densityLimitDepth(o2, he, densLim))
       const limitLabel = dlUpper ? '6.3 g/L (upper)' : '5.2 g/L (recommended)'
       setGasModal(prev => ({
-        ...prev, o2, he: mix.he,
-        mod: bailoutAutoMod(o2),
+        ...prev, o2, he, mod,
         bestMixNote: `${bmDepth} m · ppO₂ ${bmPpO2.toFixed(1)} · density ≤ ${limitLabel}`,
       }))
     } else {
