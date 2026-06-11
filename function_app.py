@@ -362,9 +362,10 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
     warnings: List[Warning] = []
 
     diluent_ppo2 = (req.diluent_o2 / 100.0) * (req.depth_m / 10.0 + 1.0)
-    if diluent_ppo2 > req.setpoint:
+    if diluent_ppo2 > req.setpoint + 0.05:
+        level = 'danger' if diluent_ppo2 > 1.6 else 'warning'
         warnings.append(Warning(
-            level='danger',
+            level=level,
             message=(
                 f'Diluent ppO₂ at {req.depth_m:.0f} m is {diluent_ppo2:.2f} bar — '
                 f'exceeds setpoint ({req.setpoint:.2f} bar). '
@@ -421,8 +422,9 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
             fo2   = bg.o2 / 100.0
             d     = gas_density(bg.o2, bg.he, use_depth)
             label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))
-            ppo2  = fo2 * (use_depth / 10.0 + 1.0)
-            if ppo2 > 1.6:
+            ppo2      = fo2 * (use_depth / 10.0 + 1.0)
+            ppo2_r    = round(ppo2, 2)
+            if ppo2_r > 1.6:
                 warnings.append(Warning(
                     level='danger',
                     message=(
@@ -431,7 +433,7 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
                         f'This gas cannot be safely breathed at this depth.'
                     ),
                 ))
-            elif ppo2 > bg.ppo2_limit:
+            elif ppo2_r > bg.ppo2_limit:
                 warnings.append(Warning(
                     level='warning',
                     message=(
