@@ -397,7 +397,7 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
         warnings.append(Warning(
             level='warning',
             message=(
-                f'Bottom time shortened from {req.bottom_time_min:.0f} min to {bottom_time_actual:.1f} min '
+                f'Bottom time shortened from {req.bottom_time_min:.0f} min to {bottom_time_actual:.0f} min '
                 f'— insufficient bailout gas supply for the requested dive time.'
             ),
         ))
