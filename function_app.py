@@ -74,6 +74,7 @@ class BailoutGasInput(BaseModel):
     o2: float = Field(ge=1, le=100, description="O₂ (%)")
     he: float = Field(default=0.0, ge=0, le=100, description="He (%)")
     mod_m: float = Field(gt=0, description="Maximum Operating Depth (m)")
+    ppo2_limit: float = Field(default=1.4, ge=1.0, le=1.6, description="ppO₂ working limit used to set MOD (bar)")
     cyl_l: Optional[float] = Field(default=None, gt=0, description="Cylinder water volume (L)")
     cyl_bar: Optional[float] = Field(default=None, gt=0, description="Fill pressure (bar)")
 
@@ -415,12 +416,12 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
         ))
 
     if oc_gases:
-        for i, g in enumerate(sorted(oc_gases, key=lambda g: g.mod_m, reverse=True)):
-            use_depth = req.depth_m if i == 0 else g.mod_m
-            d     = gas_density(g.fo2 * 100, g.fhe * 100, use_depth)
-            label = _gas_label(g)
-            ppo2  = g.fo2 * (use_depth / 10.0 + 1.0)
-            ppo2_limit = 1.6 if use_depth <= 10 else 1.4
+        for i, bg in enumerate(sorted(req.bailout_gases, key=lambda g: g.mod_m, reverse=True)):
+            use_depth = req.depth_m if i == 0 else bg.mod_m
+            fo2   = bg.o2 / 100.0
+            d     = gas_density(bg.o2, bg.he, use_depth)
+            label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))
+            ppo2  = fo2 * (use_depth / 10.0 + 1.0)
             if ppo2 > 1.6:
                 warnings.append(Warning(
                     level='danger',
@@ -430,12 +431,12 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
                         f'This gas cannot be safely breathed at this depth.'
                     ),
                 ))
-            elif ppo2 > ppo2_limit:
+            elif ppo2 > bg.ppo2_limit:
                 warnings.append(Warning(
                     level='warning',
                     message=(
                         f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'ppO₂ {ppo2:.2f} bar exceeds the working limit (1.4 bar). '
+                        f'ppO₂ {ppo2:.2f} bar exceeds the working limit ({bg.ppo2_limit:.1f} bar). '
                         f'Consider a lower O₂ fraction or shallower planned depth.'
                     ),
                 ))

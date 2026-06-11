@@ -182,6 +182,7 @@ export default function DivePlanner() {
         cns_warn_pct:         settings.cnsWarnPct,
         bailout_gases:        activeBailout.map(g => ({
           o2: g.o2, he: g.he, mod_m: g.mod_m,
+          ppo2_limit: g.ppo2_limit ?? 1.4,
           cyl_l: g.cyl_l || null, cyl_bar: g.cyl_bar || null,
         })),
         bailout_gf_low:       settings.bailoutGfLow,
