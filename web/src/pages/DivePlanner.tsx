@@ -19,19 +19,19 @@ const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
 const DEFAULT_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  mod_m: 6,  cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 80,  he: 0,  mod_m: 9,  cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 60,  he: 0,  mod_m: 12, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 50,  he: 0,  mod_m: 15, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 0,  mod_m: 54, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 25, mod_m: 54, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 20,  he: 55, mod_m: 57, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 16,  he: 70, mod_m: 75, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 13,  he: 75, mod_m: 96, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 100, he: 0,  mod_m: 6,  ppo2_limit: 1.6, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 80,  he: 0,  mod_m: 9,  ppo2_limit: 1.6, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 60,  he: 0,  mod_m: 12, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 50,  he: 0,  mod_m: 15, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 21,  he: 0,  mod_m: 54, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 21,  he: 25, mod_m: 54, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 20,  he: 55, mod_m: 57, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 16,  he: 70, mod_m: 75, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 13,  he: 75, mod_m: 96, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
 ]
 const DEFAULT_SETTINGS: PlannerSettings = {
   gfLow: 60, gfHigh: 80,
-  bailoutGfLow: 50, bailoutGfHigh: 80,
+  bailoutGfLow: 60, bailoutGfHigh: 80,
   descRate: 20, ascRateDeep: 9, ascRateShallow: 3,
   lastStopM: 3, cnsWarnPct: 80,
   sacBottom: 25, sacDeco: 15, reserveBar: 50,
@@ -39,7 +39,7 @@ const DEFAULT_SETTINGS: PlannerSettings = {
 const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
   { name: 'Shallow Reef',  gas: { o2: 21, he: 0,  setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45 },
   { name: 'Wreck Dive',    gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25 },
-  { name: 'Deep Trimix',   gas: { o2: 10, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20 },
+  { name: 'Trimix Dive',   gas: { o2: 16, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20 },
 ]
 
 function makeGasLibrary(): GasEntry[] {
