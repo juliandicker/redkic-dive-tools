@@ -103,8 +103,8 @@ export default function DivePlanner() {
     load<{ plans: SavedPlan[]; nextId: number } | null>('planner_saved_plans', null)?.nextId ?? EXAMPLE_PLANS.length + 1
   )
 
-  const [depth, setDepth]   = useState(40)
-  const [bt,    setBt]      = useState(25)
+  const [depth, setDepth]   = useState(() => load<number>('planner_depth', 40))
+  const [bt,    setBt]      = useState(() => load<number>('planner_bt', 25))
   const [loading, setLoading]   = useState(false)
   const [error,   setError]     = useState('')
   const [result,  setResult]    = useState<DivePlannerResponse | null>(null)
@@ -136,6 +136,10 @@ export default function DivePlanner() {
   useEffect(() => {
     save('planner_saved_plans', { plans: savedPlans, nextId: planNextId })
   }, [savedPlans, planNextId])
+
+  // Persist depth and bottom time
+  useEffect(() => { save('planner_depth', depth) }, [depth])
+  useEffect(() => { save('planner_bt', bt) }, [bt])
 
   const activeGas = useMemo(() => gasLib.find(g => g.active) ?? null, [gasLib])
   const activeBailout = useMemo(() => bailoutLib.filter(g => g.active), [bailoutLib])
