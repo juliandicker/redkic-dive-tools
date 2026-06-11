@@ -72,5 +72,4 @@ export interface SavedPlan {
   id: number; name: string; created_at: string
   gas: { o2: number; he: number; setpoint: number }
   depth_m: number; bottom_time_min: number
-  gf_low: number; gf_high: number
 }

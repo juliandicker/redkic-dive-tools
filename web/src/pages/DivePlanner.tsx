@@ -37,9 +37,9 @@ const DEFAULT_SETTINGS: PlannerSettings = {
   sacBottom: 25, sacDeco: 15, reserveBar: 50,
 }
 const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
-  { name: 'Shallow Reef',  gas: { o2: 21, he: 0,  setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45, gf_low: 85, gf_high: 95 },
-  { name: 'Wreck Dive',    gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25, gf_low: 65, gf_high: 85 },
-  { name: 'Deep Trimix',   gas: { o2: 10, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20, gf_low: 50, gf_high: 80 },
+  { name: 'Shallow Reef',  gas: { o2: 21, he: 0,  setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45 },
+  { name: 'Wreck Dive',    gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25 },
+  { name: 'Deep Trimix',   gas: { o2: 10, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20 },
 ]
 
 function makeGasLibrary(): GasEntry[] {
@@ -324,7 +324,6 @@ export default function DivePlanner() {
       pending: {
         gas: { o2: activeGas.o2, he: activeGas.he, setpoint: activeGas.setpoint },
         depth_m: depth, bottom_time_min: bt,
-        gf_low: settings.gfLow, gf_high: settings.gfHigh,
       },
     })
   }
@@ -348,7 +347,6 @@ export default function DivePlanner() {
     if (!plan) return
     setDepth(plan.depth_m)
     setBt(plan.bottom_time_min)
-    setSettings(prev => ({ ...prev, gfLow: plan.gf_low, gfHigh: plan.gf_high }))
     const g = plan.gas
     const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
     if (match) {
@@ -377,8 +375,6 @@ export default function DivePlanner() {
       depth_m: plan.depth_m,
       bottom_time_min: plan.bottom_time_min,
       diluent: plan.gas,
-      gf_low: plan.gf_low,
-      gf_high: plan.gf_high,
       bailout_gases: bailoutLib.filter(g => g.active).map(({ o2, he, mod_m, ppo2_limit, cyl_l, cyl_bar }) => ({ o2, he, mod_m, ppo2_limit: ppo2_limit ?? 1.4, cyl_l, cyl_bar })),
       settings,
     }
@@ -400,7 +396,6 @@ export default function DivePlanner() {
         setDepth(s.depth_m)
         setBt(s.bottom_time_min)
         if (s.settings) setSettings(s.settings)
-        else setSettings(prev => ({ ...prev, gfLow: s.gf_low, gfHigh: s.gf_high }))
         const g = s.diluent
         const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
         if (match) {
@@ -655,7 +650,7 @@ export default function DivePlanner() {
                 <div className="plan-card-name">{plan.name}</div>
                 <div className="plan-card-meta">
                   {gasName(plan.gas.o2, plan.gas.he)} · SP {plan.gas.setpoint} · {plan.depth_m} m
-                  · {plan.bottom_time_min} min · GF {plan.gf_low}/{plan.gf_high}
+                  · {plan.bottom_time_min} min
                 </div>
                 <div className="plan-card-actions">
                   <button className="btn btn-sm btn-apply flex-grow-1" onClick={() => loadPlan(plan.id)}>Load</button>
