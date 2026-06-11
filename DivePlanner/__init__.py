@@ -380,6 +380,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             d = gas_density(g.fo2 * 100, g.fhe * 100, use_depth)
             label = _gas_label(g)
             ppo2 = g.fo2 * (use_depth / 10.0 + 1.0)
+            # Shallow deco gases (used at ≤ 10 m) use the 1.6 bar limit, not 1.4.
+            ppo2_working_limit = 1.6 if use_depth <= 10 else 1.4
             if ppo2 > 1.6:
                 warnings.append({
                     'level': 'danger',
@@ -389,12 +391,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                         f'This gas cannot be safely breathed at this depth.'
                     ),
                 })
-            elif ppo2 >= 1.4:
+            elif ppo2 > ppo2_working_limit:
                 warnings.append({
                     'level': 'warning',
                     'message': (
                         f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'ppO₂ {ppo2:.2f} bar is at or above the working limit (1.4 bar). '
+                        f'ppO₂ {ppo2:.2f} bar exceeds the working limit (1.4 bar). '
                         f'Consider a lower O₂ fraction or shallower planned depth.'
                     ),
                 })
