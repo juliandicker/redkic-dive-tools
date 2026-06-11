@@ -135,6 +135,12 @@ export default function PlanSection({
         callbacks: {
           title: (items) => `${Math.round(items[0].parsed.x ?? 0)} min`,
           label: (item) => `${item.dataset.label}: ${(item.parsed.y ?? 0).toFixed(1)} m`,
+          afterBody: (items) => {
+            if (!isBailout) return []
+            const depth = items[0]?.parsed.y ?? 0
+            const gas = resolveGasAtStop(depth, gasSwitches, bailoutInitialGas ?? diluent)
+            return [`Gas: ${gas.name}`]
+          },
         },
       },
     },
