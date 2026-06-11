@@ -869,7 +869,7 @@ export default function DivePlanner() {
               <div className="mb-2">
                 <label className="field-label">Setpoint — <b>{gasModal.bmSp.toFixed(1)}</b> bar</label>
                 <input type="range" className="form-range" min={0.7} max={1.6} step={0.1} value={gasModal.bmSp}
-                  onChange={e => setGasModal(prev => ({ ...prev, bmSp: parseFloat(e.target.value) }))} />
+                  onChange={e => { const v = parseFloat(e.target.value); setGasModal(prev => ({ ...prev, bmSp: v, setpoint: v })) }} />
               </div>
               <div className="form-check form-switch mb-3">
                 <input className="form-check-input" type="checkbox" id="dl_upper"
