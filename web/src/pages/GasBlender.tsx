@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Accordion from 'react-bootstrap/Accordion'
+import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
 import GasBar from '../components/GasBar'
 import { trimixBlend } from '../api'
@@ -22,6 +22,7 @@ export default function GasBlender() {
   const [bmDepthIdx, setBmDepthIdx] = useState(5)
   const [bmPpO2, setBmPpO2] = useState(1.4)
   const [bmDensityUpper, setBmDensityUpper] = useState(false)
+  const [bmOpen, setBmOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<TrimixBlendResponse | null>(null)
@@ -72,16 +73,19 @@ export default function GasBlender() {
 
   function applyBestMix() {
     setInputs(prev => ({ ...prev, finishBar: 232, finishO2: bmO2, finishHe: bmHe }))
+    setBmOpen(false)
   }
   function applyPreset(o2: number, he: number) {
     setInputs(prev => ({ ...prev, finishBar: 232, finishO2: o2, finishHe: he }))
   }
 
   function GasCard({
-    label, barField, o2Field, heField, bar, o2, he
+    label, barField, o2Field, heField, bar, o2, he, presets, onPreset, onBestMix
   }: {
     label: string; barField: keyof GasInputs; o2Field: keyof GasInputs; heField: keyof GasInputs
     bar: number; o2: number; he: number
+    presets?: [number, number][]; onPreset?: (o2: number, he: number) => void
+    onBestMix?: () => void
   }) {
     return (
       <div className="card">
@@ -105,6 +109,22 @@ export default function GasBlender() {
             </div>
           </div>
           <GasBar o2={o2} he={he} showLegend />
+          {presets && onPreset && (
+            <div className="preset-grid mt-2">
+              {presets.map(([po2, phe]) => (
+                <button key={`${po2}/${phe}`} className="preset-btn" onClick={() => onPreset(po2, phe)}>
+                  {phe > 0 ? `${po2}/${phe}` : `${po2}%`}
+                </button>
+              ))}
+            </div>
+          )}
+          {onBestMix && (
+            <button className="btn btn-sm w-100 mt-2"
+              style={{ background: '#eef2f8', color: 'var(--ocean)', fontSize: '0.75rem', fontWeight: 600, border: '1px solid var(--border)' }}
+              onClick={onBestMix}>
+              <i className="bi bi-stars me-1" />Best Mix
+            </button>
+          )}
         </div>
       </div>
     )
@@ -125,67 +145,16 @@ export default function GasBlender() {
           </div>
           <div className="col-4">
             <GasCard label="Target Gas" barField="finishBar" o2Field="finishO2" heField="finishHe"
-              bar={inputs.finishBar} o2={inputs.finishO2} he={inputs.finishHe} />
+              bar={inputs.finishBar} o2={inputs.finishO2} he={inputs.finishHe}
+              presets={[[21,0],[21,35],[18,45],[15,55],[12,60],[10,70],[21,30],[18,35]]}
+              onPreset={applyPreset}
+              onBestMix={() => setBmOpen(true)} />
           </div>
           <div className="col-4">
             <GasCard label="Helium Bank" barField="heliumBar" o2Field="heliumO2" heField="heliumHe"
               bar={inputs.heliumBar} o2={inputs.heliumO2} he={inputs.heliumHe} />
           </div>
         </div>
-
-        <Accordion className="target-accordion mb-3" alwaysOpen={false}>
-          <Accordion.Item eventKey="presets">
-            <Accordion.Header>Quick Presets</Accordion.Header>
-            <Accordion.Body>
-              <div className="preset-grid">
-                {[
-                  [21,0],[21,35],[18,45],[15,55],[12,60],[10,70],[21,30],[18,35]
-                ].map(([o2,he]) => (
-                  <button key={`${o2}/${he}`} className="preset-btn" onClick={() => applyPreset(o2, he)}>
-                    {he > 0 ? `${o2}/${he}` : `${o2}%`}
-                  </button>
-                ))}
-              </div>
-            </Accordion.Body>
-          </Accordion.Item>
-          <Accordion.Item eventKey="bestmix">
-            <Accordion.Header>Best Mix Calculator</Accordion.Header>
-            <Accordion.Body>
-              <div className="best-mix-panel">
-                <div className="row g-2 align-items-center mb-2">
-                  <div className="col">
-                    <label className="field-label">Depth — <b>{bmDepth}</b> m</label>
-                    <input type="range" className="form-range" min={0} max={BM_DEPTHS.length - 1}
-                      value={bmDepthIdx} onChange={e => setBmDepthIdx(parseInt(e.target.value))} />
-                  </div>
-                  <div className="col">
-                    <label className="field-label">ppO₂ — <b>{bmPpO2.toFixed(1)}</b> bar</label>
-                    <input type="range" className="form-range" min={0.7} max={1.6} step={0.1}
-                      value={bmPpO2} onChange={e => setBmPpO2(parseFloat(e.target.value))} />
-                  </div>
-                </div>
-                <div className="form-check form-switch mb-3">
-                  <input className="form-check-input" type="checkbox" id="bm_density_upper"
-                    checked={bmDensityUpper} onChange={e => setBmDensityUpper(e.target.checked)} />
-                  <label className="form-check-label small text-muted" htmlFor="bm_density_upper">
-                    Upper density limit (6.3 g/L)
-                  </label>
-                </div>
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <div className="bm-mix">{bmLabel}</div>
-                    <div className="bm-stats text-muted">
-                      Density {bmDensity} g/L &middot; END {bmEnd} m
-                    </div>
-                  </div>
-                  <button className="btn btn-apply btn-sm px-3" onClick={applyBestMix}>
-                    Apply
-                  </button>
-                </div>
-              </div>
-            </Accordion.Body>
-          </Accordion.Item>
-        </Accordion>
 
         {loading && (
           <div className="loading-spinner text-center py-3">
@@ -203,6 +172,38 @@ export default function GasBlender() {
           purposes only. Always verify gas mixes with a calibrated analyser before diving.
         </div>
       </footer>
+
+      <Modal show={bmOpen} onHide={() => setBmOpen(false)} size="sm">
+        <Modal.Header closeButton className="py-2">
+          <Modal.Title style={{ fontSize: '0.9rem', fontWeight: 700 }}>Best Mix</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="py-3">
+          <div className="mb-2">
+            <label className="field-label">Depth — <b>{bmDepth}</b> m</label>
+            <input type="range" className="form-range" min={0} max={BM_DEPTHS.length - 1}
+              value={bmDepthIdx} onChange={e => setBmDepthIdx(parseInt(e.target.value))} />
+          </div>
+          <div className="mb-2">
+            <label className="field-label">ppO₂ — <b>{bmPpO2.toFixed(1)}</b> bar</label>
+            <input type="range" className="form-range" min={0.7} max={1.6} step={0.1}
+              value={bmPpO2} onChange={e => setBmPpO2(parseFloat(e.target.value))} />
+          </div>
+          <div className="form-check form-switch mb-3">
+            <input className="form-check-input" type="checkbox" id="bm_density_upper"
+              checked={bmDensityUpper} onChange={e => setBmDensityUpper(e.target.checked)} />
+            <label className="form-check-label small text-muted" htmlFor="bm_density_upper">
+              Upper density limit (6.3 g/L)
+            </label>
+          </div>
+          <div className="d-flex justify-content-between align-items-baseline mt-1 mb-3" style={{ fontSize: '0.75rem' }}>
+            <span style={{ fontWeight: 800, color: 'var(--ocean)', fontSize: '1rem' }}>{bmLabel}</span>
+            <span className="text-muted">Density {bmDensity} g/L &middot; END {bmEnd} m</span>
+          </div>
+        </Modal.Body>
+        <Modal.Footer className="py-2">
+          <button className="btn btn-sm btn-apply px-3" onClick={applyBestMix}>Apply</button>
+        </Modal.Footer>
+      </Modal>
     </div>
   )
 }
@@ -220,15 +221,15 @@ function Results({ data }: { data: TrimixBlendResponse }) {
               <div className="step-num">{i + 1}</div>
               <div className="flex-grow-1">
                 <div className="step-name">Add {step.name}</div>
-                <div className="step-pressure">
-                  {step.start_gas.bar} bar
-                  <span className="step-arrow">→</span>
-                  {step.result_gas.bar} bar
-                </div>
               </div>
               <div>
                 <div className={`step-finish-delta ${diff >= 0 ? 'delta-pos' : 'delta-neg'}`}>
-                  ({sign}{diff})
+                  {sign}{diff}{' '}
+                  <span style={{ color: 'var(--muted)', fontWeight: 400 }}>
+                    ({step.start_gas.bar} bar
+                    <span className="step-arrow">→</span>
+                    {step.result_gas.bar} bar)
+                  </span>
                 </div>
                 <div className="step-result-mix text-muted">
                   mix: {step.result_gas.o2}/{step.result_gas.he}

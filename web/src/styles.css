@@ -101,26 +101,6 @@ body::before {
     flex-shrink: 0;
 }
 
-/* ── Accordion (Quick Presets / Best Mix) ── */
-.target-accordion { border-radius: 7px; overflow: hidden; }
-.target-accordion .accordion-item  { background: transparent; border-color: var(--border); }
-.target-accordion .accordion-button {
-    font-size: 0.73rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--ocean);
-    background: transparent;
-    padding: 0.45rem 0.7rem;
-}
-.target-accordion .accordion-button:not(.collapsed) {
-    color: var(--ocean);
-    background: #eef2f8;
-    box-shadow: none;
-}
-.target-accordion .accordion-button:focus { box-shadow: none; }
-.target-accordion .accordion-button::after { filter: hue-rotate(180deg) brightness(0.6); }
-.target-accordion .accordion-body { padding: 0.5rem 0.7rem 0.7rem; }
 
 /* ── Nav hamburger ───────────────────────── */
 .btn-hamburger {
@@ -191,15 +171,6 @@ body::before {
 }
 .preset-btn:hover { background: var(--ocean); border-color: var(--ocean); color: white; }
 
-/* ── Best Mix panel ──────────────────────── */
-.best-mix-panel {
-    background: rgba(240,246,251,0.7);
-    border: 1px solid #cde2f0;
-    border-radius: 8px;
-    padding: 0.85rem 0.9rem;
-}
-.bm-mix   { font-size: 2rem; font-weight: 800; color: var(--ocean); line-height: 1; }
-.bm-stats { font-size: 0.75rem; }
 
 /* ── Fill sequence steps ─────────────────── */
 .step-card {
@@ -229,7 +200,7 @@ body::before {
 .delta-pos { color: #2a7a46; }
 .delta-neg { color: #c0392b; }
 .step-finish { font-size: 1.15rem; font-weight: 800; color: var(--navy); text-align: right; line-height: 1.3; white-space: nowrap; }
-.step-finish-delta { font-size: 0.75rem; font-weight: 600; }
+.step-finish-delta { font-size: 1rem; font-weight: 700; text-align: right; white-space: nowrap; }
 .step-result-mix { font-size: 0.72rem; color: var(--muted); text-align: right; white-space: nowrap; }
 
 /* ── Analysis cards ──────────────────────── */
