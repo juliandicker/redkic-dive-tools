@@ -20,42 +20,33 @@ export interface TrimixBlendResponse {
 // ── Dive Planner API ───────────────────────────────────────────────────────────
 
 export interface Warning { level: string; message: string }
-export interface DecoStop { depth_m: number; stop_time_min: number; runtime_min: number }
-export interface ProfilePoint { t: number; depth: number; ceiling: number; sats: number[] }
+export interface DecoStop { depth_m: number; time_min: number; runtime_min: number }
+export interface ProfilePoint { t: number; d: number; c: number; sats: number[] }
 export interface DensityAnalysis {
-  gas_name: string; depth_m: number; density_gl: number
-  exceeds_rec: boolean; exceeds_upper: boolean
+  density_gl: number
+  exceeded_recommended: boolean
+  exceeded_limit: boolean
 }
-export interface GasSwitch { depth_m: number; gas_name: string; runtime_min: number }
+export interface GasSwitch { depth_m: number; label: string }
 export interface GasSupplyEntry {
-  gas_name: string; available_l: number; required_l: number
-  is_feasible: boolean; max_bottom_time_min: number | null
+  o2: number; he: number; mod_m: number
+  consumed_L: number; available_L: number | null; pct: number | null
 }
 export interface BailoutPlan {
-  deco_stops: DecoStop[]
-  total_time_min: number
-  tts_min: number
-  cns_pct: number
-  otu: number
+  stops: DecoStop[]
+  total_time_min: number; tts_min: number; cns_pct: number; otu: number
+  gas_switches: GasSwitch[]
   profile_points: ProfilePoint[]
   tissue_saturations: number[]
-  density_analysis: DensityAnalysis[]
-  gas_switches: GasSwitch[]
-  gas_supply: GasSupplyEntry[]
-  warnings: Warning[]
+  gas_supply: GasSupplyEntry[] | null
 }
 export interface DivePlannerResponse {
-  deco_stops: DecoStop[]
-  total_time_min: number
-  tts_min: number
-  cns_pct: number
-  otu: number
-  bottom_time_actual: number | null
+  stops: DecoStop[]
+  total_time_min: number; tts_min: number; cns_pct: number; otu: number
+  bottom_time_actual: number
   profile_points: ProfilePoint[]
   tissue_saturations: number[]
-  density_analysis: DensityAnalysis[]
-  gas_switches: GasSwitch[]
-  gas_supply: GasSupplyEntry[]
+  density_analysis: DensityAnalysis
   bailout: BailoutPlan | null
   warnings: Warning[]
 }

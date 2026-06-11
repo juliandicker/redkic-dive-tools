@@ -484,7 +484,7 @@ export default function DivePlanner() {
 
                 <PlanSection
                   title="Decompression Schedule"
-                  decoStops={result.deco_stops}
+                  decoStops={result.stops}
                   totalTimeMin={result.total_time_min}
                   ttsMin={result.tts_min}
                   cnsPct={result.cns_pct}
@@ -492,8 +492,8 @@ export default function DivePlanner() {
                   profilePoints={result.profile_points}
                   tissueSaturations={result.tissue_saturations}
                   densityAnalysis={result.density_analysis}
-                  gasSwitches={result.gas_switches}
-                  gasSupply={result.gas_supply}
+                  gasSwitches={[]}
+                  gasSupply={null}
                   warnings={result.warnings}
                   gfHigh={settings.gfHigh}
                   diluent={activeGas}
@@ -505,17 +505,17 @@ export default function DivePlanner() {
                 {result.bailout && (
                   <PlanSection
                     title="Bailout Schedule"
-                    decoStops={result.bailout.deco_stops}
+                    decoStops={result.bailout.stops}
                     totalTimeMin={result.bailout.total_time_min}
                     ttsMin={result.bailout.tts_min}
                     cnsPct={result.bailout.cns_pct}
                     otu={result.bailout.otu}
                     profilePoints={result.bailout.profile_points}
                     tissueSaturations={result.bailout.tissue_saturations}
-                    densityAnalysis={result.bailout.density_analysis}
+                    densityAnalysis={null}
                     gasSwitches={result.bailout.gas_switches}
                     gasSupply={result.bailout.gas_supply}
-                    warnings={result.bailout.warnings}
+                    warnings={[]}
                     gfHigh={settings.bailoutGfHigh}
                     diluent={activeGas}
                     depthM={depth}

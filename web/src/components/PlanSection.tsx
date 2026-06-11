@@ -23,9 +23,9 @@ interface PlanSectionProps {
   otu: number
   profilePoints: ProfilePoint[]
   tissueSaturations: number[]
-  densityAnalysis: DensityAnalysis[]
+  densityAnalysis: DensityAnalysis | null
   gasSwitches: GasSwitch[]
-  gasSupply: GasSupplyEntry[]
+  gasSupply: GasSupplyEntry[] | null
   warnings: Warning[]
   gfHigh: number
   diluent?: { o2: number; he: number; setpoint: number }
@@ -79,7 +79,7 @@ export default function PlanSection({
     datasets: [
       {
         label: 'Depth (m)',
-        data: profilePoints.map(p => ({ x: p.t, y: p.depth })),
+        data: profilePoints.map(p => ({ x: p.t, y: p.d })),
         borderColor: '#1a4a72',
         backgroundColor: 'rgba(26,74,114,0.12)',
         fill: true,
@@ -90,7 +90,7 @@ export default function PlanSection({
       },
       {
         label: 'Ceiling (m)',
-        data: profilePoints.map(p => ({ x: p.t, y: p.ceiling })),
+        data: profilePoints.map(p => ({ x: p.t, y: p.c })),
         borderColor: 'rgba(220,100,0,0.8)',
         backgroundColor: 'transparent',
         fill: false,
@@ -128,8 +128,8 @@ export default function PlanSection({
   }
 
   const tissueTitle = hoveredSats
-    ? `Tissue loading at ${profilePoints.find(p => p.sats === hoveredSats)?.t?.toFixed(1) ?? '?'} min`
-    : `Tissue loading — surface`
+    ? 'Tissue loading at hover'
+    : 'Tissue loading — surface'
 
   const tissueData: ChartData<'bar'> = {
     labels: Array.from({ length: 16 }, (_, i) => `C${i + 1}`),
@@ -169,10 +169,10 @@ export default function PlanSection({
     animation: false,
   }
 
-  const gas   = diluent
-  const depth = depthM ?? 0
-  const bt    = btMin  ?? 0
-  const dRate = descRate ?? 20
+  const gas    = diluent
+  const depth  = depthM ?? 0
+  const bt     = btMin  ?? 0
+  const dRate  = descRate ?? 20
   const descTime = Math.round(depth / dRate)
   const flatBt   = Math.round(bt - descTime)
   const sp       = gas?.setpoint ?? 1.3
@@ -232,10 +232,8 @@ export default function PlanSection({
                     <td>{descTime}</td>
                     <td>{descTime}</td>
                     <td>{sp.toFixed(2)}</td>
-                    <td className="density-cell" data-o2={gO2} data-he={gHe} data-d={depth}>{
-                      (surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)
-                    }</td>
-                    <td style={{ fontSize: '0.78rem' }}>{isBailout ? gasName(gO2, gHe) : `${gasName(gO2, gHe)} · SP ${sp}`}</td>
+                    <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                    <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)} · SP {sp}</td>
                   </tr>
                 )}
                 {/* Bottom */}
@@ -255,10 +253,8 @@ export default function PlanSection({
                   <tr key={`sw${i}`} style={{ background: '#f0f8ff' }}>
                     <td className="ps-2"><i className="bi bi-arrow-repeat" style={{ color: 'var(--aqua)' }} /></td>
                     <td>{sw.depth_m} m</td>
-                    <td>—</td>
-                    <td>{sw.runtime_min}</td>
-                    <td>—</td><td>—</td>
-                    <td style={{ fontSize: '0.78rem', color: 'var(--ocean)', fontWeight: 700 }}>→ {sw.gas_name}</td>
+                    <td>—</td><td>—</td><td>—</td><td>—</td>
+                    <td style={{ fontSize: '0.78rem', color: 'var(--ocean)', fontWeight: 700 }}>→ {sw.label}</td>
                   </tr>
                 ))}
                 {/* Deco stops */}
@@ -278,7 +274,7 @@ export default function PlanSection({
                           style={{ color: isLast ? '#2a7a46' : 'var(--muted)' }} />
                       </td>
                       <td>{stop.depth_m} m</td>
-                      <td>{stop.stop_time_min}</td>
+                      <td>{stop.time_min}</td>
                       <td>{stop.runtime_min}</td>
                       <td>{ppO2}</td>
                       <td style={densColor ? { color: densColor } : {}}>{dens}</td>
@@ -313,38 +309,39 @@ export default function PlanSection({
         </div>
       </div>
 
-      {/* Density analysis */}
-      {densityAnalysis.length > 0 && (
+      {/* Density analysis (single entry) */}
+      {densityAnalysis && (
         <div className="card mb-3">
           <div className="card-body py-2 px-3">
             <div className="card-section-title">Gas Density</div>
-            {densityAnalysis.map((d, i) => (
-              <div key={i} className="analysis-row">
-                <span className="analysis-label">{d.gas_name} @ {d.depth_m} m</span>
-                <span className={`analysis-depth ${d.exceeds_upper ? 'text-danger' : d.exceeds_rec ? 'text-warning' : ''}`}>
-                  {d.density_gl.toFixed(2)} g/L
-                </span>
-              </div>
-            ))}
+            <div className="analysis-row">
+              <span className="analysis-label">Diluent at depth</span>
+              <span className={`analysis-depth ${densityAnalysis.exceeded_limit ? 'text-danger' : densityAnalysis.exceeded_recommended ? 'text-warning' : ''}`}>
+                {densityAnalysis.density_gl.toFixed(2)} g/L
+              </span>
+            </div>
           </div>
         </div>
       )}
 
       {/* Gas supply */}
-      {gasSupply.length > 0 && (
+      {gasSupply && gasSupply.length > 0 && (
         <div className="card mb-3">
           <div className="card-body py-2 px-3">
             <div className="card-section-title">Gas Supply</div>
-            {gasSupply.map((g, i) => (
-              <div key={i} className={`analysis-row${!g.is_feasible ? ' text-danger' : ''}`}>
-                <span className="analysis-label">{g.gas_name}</span>
-                <span className="analysis-depth" style={{ fontSize: '0.8rem' }}>
-                  {g.required_l} L req / {g.available_l} L avail
-                  {g.max_bottom_time_min != null && !g.is_feasible &&
-                    ` (max BT ${g.max_bottom_time_min} min)`}
-                </span>
-              </div>
-            ))}
+            {gasSupply.map((g, i) => {
+              const feasible = g.available_L == null || g.consumed_L <= g.available_L
+              return (
+                <div key={i} className={`analysis-row${!feasible ? ' text-danger' : ''}`}>
+                  <span className="analysis-label">{gasName(g.o2, g.he)}</span>
+                  <span className="analysis-depth" style={{ fontSize: '0.8rem' }}>
+                    {Math.round(g.consumed_L)} L used
+                    {g.available_L != null && ` / ${Math.round(g.available_L)} L avail`}
+                    {g.pct != null && ` (${Math.round(g.pct)}%)`}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -360,10 +357,10 @@ function resolveGasAtStop(
   const relevant = switches.filter(s => s.depth_m >= depthM)
   if (relevant.length > 0) {
     const sw = relevant[relevant.length - 1]
-    const parts = sw.gas_name.split('/')
+    const parts = sw.label.replace('Tx', '').replace('Nx', '').split('/')
     const o2 = parseInt(parts[0]) || 21
     const he = parseInt(parts[1]) || 0
-    return { o2, he, name: sw.gas_name }
+    return { o2, he, name: sw.label }
   }
   const o2 = diluent?.o2 ?? 21
   const he = diluent?.he ?? 0
