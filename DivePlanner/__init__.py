@@ -74,7 +74,7 @@ def _oc_cns_otu(bailout_profile, sorted_gases):
         ppo2 = select_gas(avg_depth).fo2 * p_abs
         cns += _cns_rate(ppo2) * dt
         otu += _otu_rate(ppo2) * dt
-    return round(cns, 1), round(otu, 1)
+    return cns, otu
 
 
 def _compute_gas_consumption(bailout_profile, sorted_gases, sac_bottom_lpm, sac_deco_lpm):

@@ -477,7 +477,12 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
                 asc_rate_shallow_mpm=req.asc_rate_shallow_mpm,
                 last_stop_m=req.last_stop_m,
             )
-            bailout_cns, bailout_otu = _oc_cns_otu(bailout, sorted_gases_asc)
+            oc_cns, oc_otu = _oc_cns_otu(bailout, sorted_gases_asc)
+            # Add CCR loop exposure accumulated before bailout (descent + bottom)
+            loop_cns = _cns_rate(req.setpoint) * bottom_time_actual
+            loop_otu = _otu_rate(req.setpoint) * bottom_time_actual
+            bailout_cns = round(loop_cns + oc_cns, 1)
+            bailout_otu = round(loop_otu + oc_otu, 1)
 
             gas_supply: Optional[List[GasSupplyEntry]] = None
             if any(v['cyl_l'] and v['cyl_bar'] for _, v in sorted_oc_volumes):
