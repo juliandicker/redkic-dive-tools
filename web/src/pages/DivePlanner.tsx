@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Offcanvas from 'react-bootstrap/Offcanvas'
 import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
@@ -114,6 +114,7 @@ export default function DivePlanner() {
 
   const [gasModal, setGasModal] = useState<GasModalState>(INIT_MODAL)
   const [savePlanModal, setSavePlanModal] = useState<SavePlanModal>({ open: false, name: '', pending: null })
+  const uploadRef = useRef<HTMLInputElement>(null)
 
   // Persist gas library
   useEffect(() => {
@@ -366,6 +367,69 @@ export default function DivePlanner() {
     setSavedPlans(prev => prev.filter(p => p.id !== id))
   }
 
+  function downloadPlan(id: number) {
+    const plan = savedPlans.find(p => p.id === id)
+    if (!plan) return
+    const scenario = {
+      version: 1,
+      name: plan.name,
+      exported_at: new Date().toISOString(),
+      depth_m: plan.depth_m,
+      bottom_time_min: plan.bottom_time_min,
+      diluent: plan.gas,
+      gf_low: plan.gf_low,
+      gf_high: plan.gf_high,
+      bailout_gases: bailoutLib.filter(g => g.active).map(({ o2, he, mod_m, ppo2_limit, cyl_l, cyl_bar }) => ({ o2, he, mod_m, ppo2_limit: ppo2_limit ?? 1.4, cyl_l, cyl_bar })),
+      settings,
+    }
+    const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${plan.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function uploadScenario(file: File) {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const s = JSON.parse(e.target?.result as string)
+        if (!s.version || !s.depth_m || !s.diluent) throw new Error('Invalid scenario file')
+        setDepth(s.depth_m)
+        setBt(s.bottom_time_min)
+        if (s.settings) setSettings(s.settings)
+        else setSettings(prev => ({ ...prev, gfLow: s.gf_low, gfHigh: s.gf_high }))
+        const g = s.diluent
+        const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
+        if (match) {
+          selectGas(match.id)
+        } else {
+          const newId = gasNextId
+          setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id: newId, ...g, active: true }])
+          setGasNextId(newId + 1)
+        }
+        if (Array.isArray(s.bailout_gases) && s.bailout_gases.length > 0) {
+          let nextId = bailoutNextId
+          const imported: BailoutEntry[] = s.bailout_gases.map((bg: { o2: number; he: number; mod_m: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => ({
+            id: nextId++,
+            o2: bg.o2, he: bg.he, mod_m: bg.mod_m,
+            ppo2_limit: bg.ppo2_limit ?? 1.4,
+            cyl_l: bg.cyl_l ?? 0, cyl_bar: bg.cyl_bar ?? 0,
+            active: true,
+          }))
+          setBailoutLib(imported)
+          setBailoutNextId(nextId)
+        }
+        setSavedPlansOpen(false)
+      } catch {
+        alert('Could not read scenario file — invalid format.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
   // ── Modal preview values ─────────────────────────────────────────────────────
 
   const { o2: mO2, he: mHe } = gasModal
@@ -573,9 +637,17 @@ export default function DivePlanner() {
           <Offcanvas.Title>Saved Plans</Offcanvas.Title>
         </Offcanvas.Header>
         <Offcanvas.Body>
-          <button className="btn btn-sm btn-apply w-100 mb-3" onClick={openSavePlan}>
-            <i className="bi bi-bookmark-plus me-1" />Save current plan
-          </button>
+          <div className="d-flex gap-2 mb-3">
+            <button className="btn btn-sm btn-apply flex-grow-1" onClick={openSavePlan}>
+              <i className="bi bi-bookmark-plus me-1" />Save current plan
+            </button>
+            <button className="btn btn-sm btn-outline-secondary" title="Import scenario from file"
+              onClick={() => uploadRef.current?.click()}>
+              <i className="bi bi-upload" />
+            </button>
+            <input ref={uploadRef} type="file" accept=".json" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadScenario(f); e.target.value = '' }} />
+          </div>
           {savedPlans.length === 0
             ? <p className="text-muted" style={{ fontSize: '0.82rem' }}>No saved plans yet.</p>
             : [...savedPlans].reverse().map(plan => (
@@ -587,6 +659,9 @@ export default function DivePlanner() {
                 </div>
                 <div className="plan-card-actions">
                   <button className="btn btn-sm btn-apply flex-grow-1" onClick={() => loadPlan(plan.id)}>Load</button>
+                  <button className="btn btn-sm btn-outline-secondary" title="Download scenario" onClick={() => downloadPlan(plan.id)}>
+                    <i className="bi bi-download" />
+                  </button>
                   <button className="btn btn-sm btn-outline-secondary" onClick={() => deletePlan(plan.id)}>
                     <i className="bi bi-trash" />
                   </button>
