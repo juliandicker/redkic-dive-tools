@@ -286,9 +286,11 @@ export default function DivePlanner() {
   }
 
   function saveGas() {
-    const { o2, he, setpoint, mod, cylL, cylBar, isBailout, editId } = gasModal
+    const { o2, he, setpoint, bmPpO2, dlUpper, cylL, cylBar, isBailout, editId } = gasModal
     if (o2 + he > 100) return
     if (isBailout) {
+      const ppO2Mod = o2 > 0 ? Math.round((bmPpO2 / (o2 / 100) - 1) * 10) : 150
+      const mod = Math.min(ppO2Mod, densityLimitDepth(o2, he, dlUpper ? 6.3 : 5.2))
       if (editId != null) {
         setBailoutLib(prev => prev.map(g =>
           g.id === editId ? { ...g, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar } : g
@@ -369,7 +371,7 @@ export default function DivePlanner() {
   const mLimRec   = densityLimitDepth(mO2, mHe, 5.2)
   const mLimUpper = densityLimitDepth(mO2, mHe, 6.3)
   const mAutoMod  = mO2 > 0
-    ? Math.max(3, Math.floor((gasModal.bmPpO2 / (mO2 / 100) - 1) * 10 / 3) * 3)
+    ? Math.max(3, Math.round((gasModal.bmPpO2 / (mO2 / 100) - 1) * 10))
     : 150
 
   // ── Sorted libraries ─────────────────────────────────────────────────────────
@@ -665,17 +667,9 @@ export default function DivePlanner() {
               </button>
               {gasModal.bestMixNote && <div className="text-muted mb-2" style={{ fontSize: '0.65rem', textAlign: 'center' }}>{gasModal.bestMixNote}</div>}
               <hr className="my-2" />
-              <div className="mb-2">
-                <label className="field-label">
-                  MOD <span className="text-muted" style={{ fontWeight: 400, fontSize: '0.65rem' }}>
-                    (auto at {gasModal.bmPpO2.toFixed(1)} bar ppO₂: {mAutoMod} m)
-                  </span>
-                </label>
-                <div className="input-group input-group-sm">
-                  <input type="number" className="form-control" min={3} max={200} step={3} value={gasModal.mod}
-                    onChange={e => setGasModal(prev => ({ ...prev, mod: parseInt(e.target.value) || 6 }))} />
-                  <span className="input-group-text">m</span>
-                </div>
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <span className="field-label mb-0">MOD at {gasModal.bmPpO2.toFixed(1)} bar ppO₂</span>
+                <span style={{ fontWeight: 700, color: 'var(--ocean)', fontSize: '0.95rem' }}>{mAutoMod} m</span>
               </div>
               <div className="d-flex gap-2">
                 <div className="input-group input-group-sm flex-grow-1">
