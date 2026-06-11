@@ -165,8 +165,7 @@ export default function PlanSection({
         s > gfHighPct ? 'rgba(255,140,0,0.75)'  :
                         'rgba(32,150,130,0.75)'
       ),
-      borderColor: displaySats.map((_, i) => i === controlIdx ? 'rgba(0,0,0,0.75)' : 'transparent'),
-      borderWidth: 3,
+      borderWidth: 0,
     }],
   }
 
@@ -174,7 +173,10 @@ export default function PlanSection({
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: { ticks: { font: { size: 9 } } },
+      x: { ticks: {
+        font:  (ctx) => ({ size: 9, weight: ctx.index === controlIdx ? 700 : 400 }),
+        color: (ctx) => ctx.index === controlIdx ? '#0077b6' : '#666',
+      }},
       y: {
         min: 0, max: 110,
         ticks: { font: { size: 9 } },
