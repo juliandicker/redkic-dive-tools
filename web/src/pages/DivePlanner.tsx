@@ -6,7 +6,7 @@ import GasBar from '../components/GasBar'
 import PlanSection from '../components/PlanSection'
 import { divePlan } from '../api'
 import { load, save } from '../storage'
-import { densityLimitDepth, bestMix, bailoutAutoMod, gasName } from '../utils'
+import { densityLimitDepth, bestMix, bailoutAutoMod, calcMod, gasName } from '../utils'
 import type { GasEntry, BailoutEntry, PlannerSettings, SavedPlan, DivePlannerResponse } from '../types'
 
 // ── Default state ──────────────────────────────────────────────────────────────
@@ -19,15 +19,15 @@ const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
 const DEFAULT_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  mod_m: 6,  ppo2_limit: 1.6, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 80,  he: 0,  mod_m: 9,  ppo2_limit: 1.6, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 60,  he: 0,  mod_m: 12, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 50,  he: 0,  mod_m: 15, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 0,  mod_m: 54, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 25, mod_m: 54, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 20,  he: 55, mod_m: 57, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 16,  he: 70, mod_m: 75, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 13,  he: 75, mod_m: 96, ppo2_limit: 1.4, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m: 10, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 21,  he: 0,  ppo2_limit: 1.4, mod_m: 30, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 21,  he: 25, ppo2_limit: 1.4, mod_m: 41, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 20,  he: 55, ppo2_limit: 1.4, mod_m: 60, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 16,  he: 70, ppo2_limit: 1.4, mod_m: 77, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 13,  he: 75, ppo2_limit: 1.4, mod_m: 97, cyl_l: 11, cyl_bar: 210, active: false },
 ]
 const DEFAULT_SETTINGS: PlannerSettings = {
   gfLow: 60, gfHigh: 80,
@@ -270,8 +270,7 @@ export default function DivePlanner() {
       const rawFHe = (1.25 + fO2 * 0.1786 - densLim / amb) / 1.0714
       const he = Math.max(0, Math.ceil(Math.max(0, rawFHe) * 20) * 5)
       // MOD = shallower of: ppO₂ MOD (using slider ppO₂) and density MOD
-      const ppO2Mod = fO2 > 0 ? Math.round((bmPpO2 / fO2 - 1) * 10) : 150
-      const mod = Math.min(ppO2Mod, densityLimitDepth(o2, he, densLim))
+      const mod = calcMod(o2, he, bmPpO2, dlUpper)
       const limitLabel = dlUpper ? '6.3 g/L (upper)' : '5.2 g/L (recommended)'
       setGasModal(prev => ({
         ...prev, o2, he, mod,
@@ -292,8 +291,7 @@ export default function DivePlanner() {
     const { o2, he, setpoint, bmPpO2, dlUpper, cylL, cylBar, isBailout, editId } = gasModal
     if (o2 + he > 100) return
     if (isBailout) {
-      const ppO2Mod = o2 > 0 ? Math.round((bmPpO2 / (o2 / 100) - 1) * 10) : 150
-      const mod = Math.min(ppO2Mod, densityLimitDepth(o2, he, dlUpper ? 6.3 : 5.2))
+      const mod = calcMod(o2, he, bmPpO2, dlUpper)
       if (editId != null) {
         setBailoutLib(prev => prev.map(g =>
           g.id === editId ? { ...g, o2, he, mod_m: mod, cyl_l: cylL, cyl_bar: cylBar, ppo2_limit: bmPpO2 } : g
@@ -423,13 +421,16 @@ export default function DivePlanner() {
         }
         if (Array.isArray(s.bailout_gases) && s.bailout_gases.length > 0) {
           let nextId = bailoutNextId
-          const imported: BailoutEntry[] = s.bailout_gases.map((bg: { o2: number; he: number; mod_m: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => ({
+          const imported: BailoutEntry[] = s.bailout_gases.map((bg: { o2: number; he: number; mod_m?: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => {
+            const ppo2Lim = bg.ppo2_limit ?? 1.4
+            return {
             id: nextId++,
-            o2: bg.o2, he: bg.he, mod_m: bg.mod_m,
-            ppo2_limit: bg.ppo2_limit ?? 1.4,
+            o2: bg.o2, he: bg.he ?? 0, mod_m: calcMod(bg.o2, bg.he ?? 0, ppo2Lim),
+            ppo2_limit: ppo2Lim,
             cyl_l: bg.cyl_l ?? 0, cyl_bar: bg.cyl_bar ?? 0,
             active: true,
-          }))
+          }
+          })
           setBailoutLib(imported)
           setBailoutNextId(nextId)
         }
@@ -446,9 +447,7 @@ export default function DivePlanner() {
   const { o2: mO2, he: mHe } = gasModal
   const mLimRec   = densityLimitDepth(mO2, mHe, 5.2)
   const mLimUpper = densityLimitDepth(mO2, mHe, 6.3)
-  const mAutoMod  = mO2 > 0
-    ? Math.max(3, Math.round((gasModal.bmPpO2 / (mO2 / 100) - 1) * 10))
-    : 150
+  const mAutoMod  = mO2 > 0 ? calcMod(mO2, mHe, gasModal.bmPpO2, gasModal.dlUpper) : 150
 
   // ── Sorted libraries ─────────────────────────────────────────────────────────
 

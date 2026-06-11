@@ -27,6 +27,11 @@ export function bestMix(
   return { o2: o2Rounded, he: heRounded }
 }
 
+export function calcMod(o2: number, he: number, ppo2Limit: number, upperDensityLimit = false): number {
+  const ppO2Mod = o2 > 0 ? Math.max(0, Math.floor((ppo2Limit / (o2 / 100) - 1) * 10)) : 150
+  return Math.min(ppO2Mod, densityLimitDepth(o2, he, upperDensityLimit ? 6.3 : 5.2))
+}
+
 export function bailoutAutoMod(o2: number): number {
   if (o2 <= 0) return 150
   const fo2 = o2 / 100
