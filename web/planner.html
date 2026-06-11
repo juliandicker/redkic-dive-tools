@@ -182,15 +182,20 @@
             <div class="mb-0">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">Last stop</span>
-                    <input type="number" class="form-control" id="last_stop_m" min="3" max="6" step="3" value="3">
-                    <span class="input-group-text">m</span>
+                    <select class="form-select form-select-sm" id="last_stop_m">
+                        <option value="3">3 m</option>
+                        <option value="4">4 m</option>
+                        <option value="5">5 m</option>
+                        <option value="6">6 m</option>
+                        <option value="9">9 m</option>
+                    </select>
                 </div>
             </div>
             <div class="card-section-title mb-2 mt-3">Oxygen Toxicity</div>
             <div class="mb-0">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">CNS warn</span>
-                    <input type="number" class="form-control" id="cns_warn_pct" min="1" max="100" value="80">
+                    <input type="number" class="form-control" id="cns_warn_pct" min="50" max="100" value="80">
                     <span class="input-group-text">%</span>
                 </div>
             </div>
@@ -198,14 +203,14 @@
             <div class="mb-2">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">Bottom</span>
-                    <input type="number" class="form-control" id="sac_bottom" min="5" max="60" value="20">
+                    <input type="number" class="form-control" id="sac_bottom" min="2" max="200" value="25">
                     <span class="input-group-text">L/min</span>
                 </div>
             </div>
             <div class="mb-0">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">Deco</span>
-                    <input type="number" class="form-control" id="sac_deco" min="5" max="60" value="15">
+                    <input type="number" class="form-control" id="sac_deco" min="2" max="200" value="15">
                     <span class="input-group-text">L/min</span>
                 </div>
             </div>
@@ -216,6 +221,9 @@
                     <input type="number" class="form-control" id="reserve_bar" min="0" max="200" value="50">
                     <span class="input-group-text">bar</span>
                 </div>
+            </div>
+            <div class="mt-4 pt-3 border-top">
+                <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="resetSettings()">Reset to defaults</button>
             </div>
         </div>
     </div>

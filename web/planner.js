@@ -453,6 +453,21 @@ function applyBailoutGFFromCCR() {
     applyGF(low, high, true);
 }
 
+function resetSettings() {
+    var defaults = {
+        gf_low: 60, gf_high: 80,
+        bailout_gf_low: 50, bailout_gf_high: 80,
+        desc_rate: 20, asc_rate_deep: 9, asc_rate_shallow: 3,
+        last_stop_m: 3, cns_warn_pct: 80,
+        sac_bottom: 25, sac_deco: 15, reserve_bar: 50,
+    };
+    Object.keys(defaults).forEach(function (id) {
+        document.getElementById(id).value = defaults[id];
+        setCookie(id, defaults[id]);
+    });
+    calculate();
+}
+
 function initPopovers() {
     document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
         var existing = bootstrap.Popover.getInstance(el);
@@ -515,7 +530,7 @@ function calculate() {
         bailout_gases:        activeBailout.map(function (g) { return { o2: g.o2, he: g.he, mod_m: g.mod_m, cyl_l: g.cyl_l || null, cyl_bar: g.cyl_bar || null }; }),
         bailout_gf_low:       bailoutGfLow,
         bailout_gf_high:      bailoutGfHigh,
-        sac_bottom_lpm:       parseFloat(document.getElementById('sac_bottom').value) || 20,
+        sac_bottom_lpm:       parseFloat(document.getElementById('sac_bottom').value) || 25,
         sac_deco_lpm:         parseFloat(document.getElementById('sac_deco').value) || 15,
         reserve_bar:          parseFloat(document.getElementById('reserve_bar').value) || 50,
     });

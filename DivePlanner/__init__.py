@@ -203,20 +203,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("GF Low must be ≤ GF High, both between 1 and 100.", status_code=400)
     if not (1.0 <= desc_rate_mpm <= 50.0) or not (1.0 <= asc_rate_deep_mpm <= 30.0) or not (1.0 <= asc_rate_shallow_mpm <= 30.0):
         return func.HttpResponse("Ascent/descent rates out of range.", status_code=400)
-    if last_stop_m not in (3, 6):
-        return func.HttpResponse("last_stop_m must be 3 or 6.", status_code=400)
-    if not (1 <= cns_warn_pct <= 100):
-        return func.HttpResponse("cns_warn_pct must be between 1 and 100.", status_code=400)
+    if last_stop_m not in (3, 4, 5, 6, 9):
+        return func.HttpResponse("last_stop_m must be 3, 4, 5, 6, or 9.", status_code=400)
+    if not (50 <= cns_warn_pct <= 100):
+        return func.HttpResponse("cns_warn_pct must be between 50 and 100.", status_code=400)
     if bottom_time_min <= depth_m / desc_rate_mpm:
         return func.HttpResponse("Bottom time must exceed descent time.", status_code=400)
     if not (0 < bailout_gf_low <= bailout_gf_high <= 1.0):
         return func.HttpResponse("Bailout GF Low must be ≤ GF High, both between 1 and 100.", status_code=400)
 
-    sac_bottom_lpm = float(body.get('sac_bottom_lpm', 20.0))
+    sac_bottom_lpm = float(body.get('sac_bottom_lpm', 25.0))
     sac_deco_lpm   = float(body.get('sac_deco_lpm',   15.0))
     reserve_bar    = float(body.get('reserve_bar', 50.0))
-    if not (1 <= sac_bottom_lpm <= 100) or not (1 <= sac_deco_lpm <= 100):
-        return func.HttpResponse("SAC rates must be between 1 and 100 L/min.", status_code=400)
+    if not (2 <= sac_bottom_lpm <= 200) or not (2 <= sac_deco_lpm <= 200):
+        return func.HttpResponse("SAC rates must be between 2 and 200 L/min.", status_code=400)
     if not (0 <= reserve_bar <= 300):
         return func.HttpResponse("reserve_bar must be between 0 and 300.", status_code=400)
 
