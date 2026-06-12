@@ -31,12 +31,9 @@ export default function About() {
                       Gas blending from non-pure helium
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      Almost every gas blending calculator assumes your helium source is 100% He. In
-                      practice that's often not the case. You might be topping from a cylinder that
-                      isn't certified pure, or working with a mix someone else left behind. Enter the
-                      actual composition of your helium source and the fill-sequence pressures are
-                      calculated correctly. A small thing, but one that matters when the numbers need to
-                      be right.
+                      Most blending calculators assume your helium source is 100% He. Enter the actual
+                      composition and the fill-sequence pressures are calculated correctly — useful when
+                      topping from a cylinder that isn't certified pure, or one someone else part-filled.
                     </p>
                   </div>
                 </div>
@@ -50,11 +47,9 @@ export default function About() {
                       Gas density front and centre
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      Density is probably the most underappreciated safety factor in technical diving.
-                      Here it's baked into every calculation: warnings when a gas approaches the 5.2&nbsp;g/L
-                      recommended limit, a hard warning at 6.3&nbsp;g/L, and in the Dive Planner the
-                      algorithm actively delays switching to a richer deco gas if doing so would push
-                      density above the limit at that depth.
+                      Density is baked into every calculation: warnings at 5.2&nbsp;g/L and 6.3&nbsp;g/L,
+                      and in the Dive Planner the algorithm actively delays switching to a richer deco gas
+                      if doing so would push density above the limit at that depth.
                     </p>
                   </div>
                 </div>
@@ -68,15 +63,12 @@ export default function About() {
                       Tissue loading and M-value visualisation
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      The tissue saturation chart shows all 16 Bühlmann compartments as individual bars,
-                      from fastest half-time on the left to slowest on the right. Each bar shows how
-                      saturated that compartment is relative to its M-value, with the GF-adjusted limit
-                      marked as a line. The bar touching that limit is the controlling compartment: the one
-                      dictating when you can ascend. At deep stops it tends to be the fast helium
-                      compartments; as you ascend, control passes to the slower nitrogen compartments.
-                      Being able to see this shift in real time, and click any point on the profile to
-                      inspect the tissue state at that moment, turns the algorithm from a black box into
-                      something you can reason about and explain.
+                      The tissue saturation chart shows all 16 Bühlmann compartments with the GF-adjusted
+                      M-value limit marked on each bar. The compartment touching that line is the one
+                      controlling your ascent. At deep stops it tends to be the fast helium compartments;
+                      as you ascend, control passes to the slower nitrogen compartments. Click any point on
+                      the profile to inspect the tissue state at that moment. You won't find this level of
+                      visibility in most planning tools.
                     </p>
                   </div>
                 </div>
@@ -92,34 +84,11 @@ export default function About() {
                     Open <i className="bi bi-arrow-right" />
                   </Link>
                 </div>
-                <p style={{ fontSize: '0.85rem' }}>
-                  The Gas Blender calculates a partial-pressure fill sequence for trimix and nitrox blends.
-                  Fill in three things:
-                </p>
-                <ul style={{ fontSize: '0.85rem', paddingLeft: '1.25rem' }}>
-                  <li className="mb-2">
-                    <strong>Starting gas:</strong> whatever is already in the cylinder. Leave it at
-                    0&nbsp;bar / 21% O₂ / 0% He for an empty cylinder, or enter the current contents
-                    if you're topping up an existing mix.
-                  </li>
-                  <li className="mb-2">
-                    <strong>Target gas:</strong> your desired final mix (e.g. Tx21/35) and target fill
-                    pressure.
-                  </li>
-                  <li>
-                    <strong>Helium source:</strong> the actual composition of your He supply. If your
-                    cascade or cylinder contains anything other than pure helium, enter what it really is.
-                  </li>
-                </ul>
-                <p style={{ fontSize: '0.85rem' }}>
-                  The result is a three-step partial-pressure sequence: bleed to the base pressure → add
-                  helium → add oxygen → top up with air. Follow the steps in order on the whip.
-                </p>
                 <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                  The <strong>analysis panel</strong> shows MOD at ppO₂ 1.2, 1.4, and 1.6; gas density
-                  at depth with the 5.2&nbsp;g/L limit highlighted; and equivalent narcotic depth. The{' '}
-                  <strong>best-mix calculator</strong> works in reverse: give it a target depth and ppO₂
-                  limit and it suggests the optimum oxygen and helium percentages.
+                  Partial-pressure fill sequence for trimix and nitrox. Set your starting contents,
+                  target mix, and fill pressure. The key input is the helium source: enter its actual
+                  composition rather than assuming 100% He. The analysis panel and best-mix calculator
+                  are self-explanatory from there.
                 </p>
               </div>
             </div>
@@ -133,63 +102,15 @@ export default function About() {
                     Open <i className="bi bi-arrow-right" />
                   </Link>
                 </div>
-
-                <div className="card-section-title mt-1">Mode</div>
-                <p style={{ fontSize: '0.85rem' }}>
-                  The planner supports <strong>CCR</strong> and <strong>OC</strong> modes, selected in the
-                  Dive Parameters panel.
+                <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+                  Bühlmann ZHL-16C with configurable gradient factors, CCR and OC modes. In CCR mode,
+                  bailout gases are planned as a separate OC ascent starting from the same tissue state
+                  at end of bottom time. In OC mode, gas switching on ascent respects density limits.
                 </p>
-                <ul style={{ fontSize: '0.85rem', paddingLeft: '1.25rem', marginBottom: '1.25rem' }}>
-                  <li className="mb-2">
-                    <strong>CCR:</strong> set a diluent gas and a constant setpoint. The algorithm models
-                    CCR gas loading throughout the bottom phase. Bailout gases (open circuit) are planned
-                    as a separate emergency ascent starting from the same tissue state at the end of bottom
-                    time.
-                  </li>
-                  <li>
-                    <strong>OC:</strong> set your back gas and any deco or stage cylinders. On the ascent
-                    the algorithm selects the richest gas within its MOD, subject to density limits.
-                  </li>
-                </ul>
-
-                <div className="card-section-title">Gradient factors</div>
-                <p style={{ fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                  GF Low controls how conservatively the first stop is placed: lower values push it
-                  deeper. GF High sets the allowed saturation at the last stop before surfacing. CCR mode
-                  has separate gradient factors for the bailout ascent, because a bailout from depth is a
-                  different risk profile to a planned OC dive.
-                </p>
-
-                <div className="card-section-title">Profile chart</div>
-                <p style={{ fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                  The solid line is your depth profile. The dashed line is the Bühlmann ceiling: the
-                  shallowest depth at which the tissues are within their M-value limits at the current
-                  gradient factor. When the ceiling rises to meet your depth, a deco stop is required.
-                  Gas switches are marked on the chart and listed in the decompression schedule table.
-                  Hovering over the chart shows depth, ceiling, and the active gas at that moment.
-                </p>
-
-                <div className="card-section-title">Tissue saturation chart</div>
-                <p style={{ fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                  See the tissue saturation section above. This chart is the educational core of the
-                  planner. Clicking any point on the profile chart snaps the tissue display to that
-                  moment so you can inspect exactly which compartment is at the limit and why.
-                </p>
-
-                <div className="card-section-title">Gas supply</div>
-                <p style={{ fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                  Enter cylinder sizes and fill pressures against each gas. The planner estimates
-                  consumption using your SAC rates (configurable in Settings) and shows what percentage of
-                  each cylinder the plan uses. A warning appears if any gas runs short before the plan
-                  completes.
-                </p>
-
-                <div className="card-section-title">CNS and OTU</div>
                 <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                  CNS% and OTU are tracked cumulatively across the whole dive. CNS tracks short-term
-                  central nervous system oxygen toxicity; a warning fires at the threshold set in Settings
-                  (default 75%). OTU tracks cumulative pulmonary exposure, useful when planning repetitive
-                  dives over a day or a trip.
+                  Hovering the profile chart shows depth, ceiling, and the active gas at that moment.
+                  The tissue saturation chart is the educational centrepiece: click any point on the
+                  profile to see which compartment is at the GF limit and why the stop is where it is.
                 </p>
               </div>
             </div>
@@ -205,22 +126,18 @@ export default function About() {
                     <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--navy)', marginBottom: '0.5rem' }}>
                       For educational purposes
                     </div>
-                    <p style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                      These tools are implemented carefully and the results are cross-validated, but they
-                      are not certified decompression planning software. Before using any plan in the
-                      water, validate it with your approved dive planning software or dive computer.
-                    </p>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      If you find a bug, a result that doesn't look right, or have a suggestion, please{' '}
+                      These tools are cross-validated but not certified decompression planning software.
+                      Validate any plan with your approved dive planning software or dive computer before
+                      getting in the water. Bugs and suggestions welcome via{' '}
                       <a
                         href="https://github.com/juliandicker/GasBlender/issues"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: 'var(--aqua)' }}
                       >
-                        open an issue on GitHub
-                      </a>
-                      . Feedback from experienced divers and instructors is genuinely useful.
+                        GitHub issues
+                      </a>.
                     </p>
                   </div>
                 </div>
