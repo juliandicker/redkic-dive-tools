@@ -582,6 +582,10 @@ function MvaluePressureDiagram({ profilePoints, gfHigh, maxDepthM, isFullscreen 
   isFullscreen?: boolean
 }) {
   const chartRef = useRef<ChartJS<'line'>>(null)
+  // Hover-to-preview + click-to-lock: track which compartment is locked (null = none)
+  // and save visibility state so we can restore it on mouse-leave / unlock.
+  const lockedIdx = useRef<number | null>(null)
+  const preHoverVis = useRef<boolean[]>([])
   const pts = profilePoints.filter(p => p.inert && p.inert.length === 16)
   if (pts.length === 0) {
     return (
@@ -665,25 +669,71 @@ function MvaluePressureDiagram({ profilePoints, gfHigh, maxDepthM, isFullscreen 
     plugins: {
       legend: {
         display: true, position: 'right',
-        title: { display: true, text: 'click to toggle', color: '#aaa', font: { size: 8, style: 'italic' } },
+        title: { display: true, text: 'hover · click to lock', color: '#aaa', font: { size: 8, style: 'italic' } },
         labels: {
           font: { size: 9 }, boxWidth: 12, padding: 4,
           filter: (item: { text?: string }) => !(item.text ?? '').startsWith('_'),
         },
-        // Toggling a tissue compartment also shows/hides its M-value and GF-High lines
+        // Hover: temporarily isolate the compartment (unless something is locked)
+        onHover: (_e: unknown, legendItem: any, legend: any) => {
+          if (lockedIdx.current !== null) return
+          const idx: number = legendItem.datasetIndex ?? 0
+          const compIdx = idx - 33
+          if (compIdx < 0 || compIdx >= 16) return
+          const chart = legend.chart
+          if (preHoverVis.current.length === 0)
+            preHoverVis.current = chart.data.datasets.map((_: any, i: number) => chart.isDatasetVisible(i))
+          for (let i = 0; i < 16; i++) {
+            const show = i === compIdx
+            chart.setDatasetVisibility(i, show)
+            chart.setDatasetVisibility(16 + i, show)
+            chart.setDatasetVisibility(33 + i, show)
+          }
+          chart.update('none')
+        },
+        // Leave: restore state (unless locked)
+        onLeave: (_e: unknown, legendItem: any, legend: any) => {
+          if (lockedIdx.current !== null) return
+          const idx: number = legendItem.datasetIndex ?? 0
+          const compIdx = idx - 33
+          if (compIdx < 0 || compIdx >= 16) return
+          const chart = legend.chart
+          if (preHoverVis.current.length > 0) {
+            preHoverVis.current.forEach((vis, i) => chart.setDatasetVisibility(i, vis))
+            preHoverVis.current = []
+          }
+          chart.update('none')
+        },
+        // Click: lock to this compartment (or unlock if already locked here)
         onClick: (_e: unknown, legendItem: any, legend: any) => {
           const chart = legend.chart
           const idx: number = legendItem.datasetIndex ?? 0
-          const compIdx = idx - 33  // tissue datasets start at 33
-          if (compIdx >= 0 && compIdx < 16) {
-            const vis = !chart.isDatasetVisible(idx)
-            chart.setDatasetVisibility(idx, vis)           // tissue path
-            chart.setDatasetVisibility(compIdx, vis)       // M-value line
-            chart.setDatasetVisibility(16 + compIdx, vis)  // GF-High line
-          } else {
+          const compIdx = idx - 33
+          if (compIdx < 0 || compIdx >= 16) {
             chart.setDatasetVisibility(idx, !chart.isDatasetVisible(idx))
+            chart.update('none')
+            return
           }
-          chart.update()
+          if (lockedIdx.current === compIdx) {
+            // Unlock — restore saved state
+            lockedIdx.current = null
+            if (preHoverVis.current.length > 0) {
+              preHoverVis.current.forEach((vis, i) => chart.setDatasetVisibility(i, vis))
+              preHoverVis.current = []
+            }
+          } else {
+            // Lock to this compartment (save state first if not already saved by hover)
+            if (preHoverVis.current.length === 0)
+              preHoverVis.current = chart.data.datasets.map((_: any, i: number) => chart.isDatasetVisible(i))
+            lockedIdx.current = compIdx
+            for (let i = 0; i < 16; i++) {
+              const show = i === compIdx
+              chart.setDatasetVisibility(i, show)
+              chart.setDatasetVisibility(16 + i, show)
+              chart.setDatasetVisibility(33 + i, show)
+            }
+          }
+          chart.update('none')
         },
       },
       tooltip: {
