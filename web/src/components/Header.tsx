@@ -57,6 +57,15 @@ export default function Header({ title, tagline, extraButtons }: HeaderProps) {
             <div className="nav-page-title">Dive Planner</div>
             <div className="nav-page-desc">Bühlmann ZHL-16C decompression planner — CCR trimix</div>
           </Link>
+          <hr style={{ margin: '0.5rem 0', borderColor: 'var(--border)' }} />
+          <Link
+            to="/about"
+            className={`nav-offcanvas-link${pathname === '/about' ? ' active' : ''}`}
+            onClick={() => setNavOpen(false)}
+          >
+            <div className="nav-page-title">About &amp; How to Use</div>
+            <div className="nav-page-desc">Features, usage guide, and educational context</div>
+          </Link>
         </Offcanvas.Body>
       </Offcanvas>
     </header>
