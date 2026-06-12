@@ -409,9 +409,23 @@ export default function PlanSection({
           <div className="chart-wrap" ref={chartWrapRef}>
             <div className="chart-header">
               <span className="result-heading" style={{ marginBottom: 0, borderBottom: 'none' }}>{title}</span>
-              <button className="chart-fs-btn" onClick={toggleFullscreen} title="Full screen">
-                <i className={`bi bi-fullscreen${isFullscreen ? '-exit' : ''}`} />
-              </button>
+              <div className="d-flex gap-1 align-items-center">
+                {profilePoints.some(p => p.inert?.length) && (<>
+                  <button className="chart-fs-btn" style={{ fontSize: '0.75rem' }}
+                    onClick={() => { setActiveView('time'); setMvalueOpen(true) }}
+                    title="Compartment loading over time">
+                    <i className="bi bi-graph-up me-1" />Loading
+                  </button>
+                  <button className="chart-fs-btn" style={{ fontSize: '0.75rem' }}
+                    onClick={() => { setActiveView('mvalue'); setMvalueOpen(true) }}
+                    title="M-value pressure diagram">
+                    <i className="bi bi-bullseye me-1" />M-value
+                  </button>
+                </>)}
+                <button className="chart-fs-btn" onClick={toggleFullscreen} title="Full screen">
+                  <i className={`bi bi-fullscreen${isFullscreen ? '-exit' : ''}`} />
+                </button>
+              </div>
             </div>
             <div
               className="profile-canvas"
@@ -424,15 +438,6 @@ export default function PlanSection({
             <div className="no-print" style={{ height: 200, position: 'relative', marginTop: 8 }}>
               <Bar data={tissueData} options={tissueOptions} />
             </div>
-            {profilePoints.some(p => p.inert?.length) && (
-              <button
-                className="btn btn-outline-primary btn-sm w-100 mt-2 no-print"
-                onClick={() => setMvalueOpen(true)}
-              >
-                <i className="bi bi-graph-up me-2" />
-                Compartment loading diagrams
-              </button>
-            )}
           </div>
         </div>
       </div>
