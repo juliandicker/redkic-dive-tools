@@ -84,6 +84,29 @@ def _infeasibility_msg(sorted_volumes, reserve_bar, depth_m, prefix='Gas') -> st
     )
 
 
+def _density_warnings(description: str, depth_m: float, d: float) -> List[Warning]:
+    if d > 6.3:
+        return [Warning(
+            level='danger',
+            message=(
+                f'{description} at {depth_m:.0f} m: '
+                f'gas density {d:.2f} g/L exceeds the upper limit (6.3 g/L). '
+                f'This gas cannot be safely breathed at this depth — '
+                f'consider a less dense alternative or reducing planned depth.'
+            ),
+        )]
+    if d > 5.2:
+        return [Warning(
+            level='warning',
+            message=(
+                f'{description} at {depth_m:.0f} m: '
+                f'gas density {d:.2f} g/L exceeds the recommended limit (5.2 g/L). '
+                f'Increased work of breathing and CO₂ retention risk.'
+            ),
+        )]
+    return []
+
+
 def _gas_warnings(
     gases, bottom_depth_m,
     first_gas_type='Back gas', other_gas_type='Deco gas',
@@ -118,25 +141,7 @@ def _gas_warnings(
             ))
         if skip_first_density and i == 0:
             continue
-        if d > 6.3:
-            warnings.append(Warning(
-                level='danger',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'gas density {d:.2f} g/L exceeds the upper limit (6.3 g/L). '
-                    f'This gas cannot be safely breathed at this depth — '
-                    f'consider a less dense alternative or reducing planned depth.'
-                ),
-            ))
-        elif d > 5.2:
-            warnings.append(Warning(
-                level='warning',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'gas density {d:.2f} g/L exceeds the recommended limit (5.2 g/L). '
-                    f'Increased work of breathing and CO₂ retention risk.'
-                ),
-            ))
+        warnings.extend(_density_warnings(f'{gas_type} {label}', use_depth, d))
     return warnings
 
 
@@ -186,24 +191,7 @@ def _build_plan_warnings(
                     f'Safe in normal CCR operation but approach diluent flushes and OC bailout with caution.'
                 ),
             ))
-        if density_gl > 6.3:
-            warnings.append(Warning(
-                level='danger',
-                message=(
-                    f'Diluent {diluent_label} at {req.depth_m:.0f} m: '
-                    f'gas density {density_gl:.2f} g/L exceeds the upper limit (6.3 g/L). '
-                    f'This diluent is not safe to breathe at this depth.'
-                ),
-            ))
-        elif density_gl > 5.2:
-            warnings.append(Warning(
-                level='warning',
-                message=(
-                    f'Diluent {diluent_label} at {req.depth_m:.0f} m: '
-                    f'gas density {density_gl:.2f} g/L exceeds the recommended limit (5.2 g/L). '
-                    f'Increased work of breathing and CO₂ retention risk.'
-                ),
-            ))
+        warnings.extend(_density_warnings(f'Diluent {diluent_label}', req.depth_m, density_gl))
 
     supply_phrase = 'insufficient bailout gas supply' if mode == 'ccr' else 'insufficient gas supply'
     if gas_infeasible:
