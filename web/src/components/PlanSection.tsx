@@ -505,7 +505,7 @@ function MvalueDiagram({ profilePoints, isFullscreen }: {
   // Default: show every other compartment to reduce initial clutter; user clicks legend to toggle
   const tissueDatasets = Array.from({ length: 16 }, (_, i) => ({
     label: `C${i + 1} (${N2_HALF_TIMES[i]} min)`,
-    hidden: i % 2 !== 0,
+    hidden: false,
     data: pts.map(p => ({ x: p.t, y: +(p.inert![i][0] + p.inert![i][1]).toFixed(4) })),
     showLine: true, pointRadius: 0, fill: false, tension: 0.15,
     borderColor: compColor(i),
