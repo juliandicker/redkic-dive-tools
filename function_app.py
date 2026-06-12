@@ -413,7 +413,11 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
 
     # Per-gas ppO2 and density warnings (all gases, deepest checked at bottom depth)
     for i, bg in enumerate(sorted(req.bailout_gases, key=lambda g: g.mod_m, reverse=True)):
-        use_depth = req.depth_m if i == 0 else bg.mod_m
+        if i == 0:
+            use_depth = req.depth_m
+        else:
+            # Density-aware switching delays the gas to shallower depths; warn at actual first-use depth
+            use_depth = min(bg.mod_m, density_depth(bg.o2, bg.he, 5.2))
         fo2   = bg.o2 / 100.0
         d     = gas_density(bg.o2, bg.he, use_depth)
         label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))
@@ -646,7 +650,10 @@ def _plan_ccr(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
 
     if oc_gases:
         for i, bg in enumerate(sorted(req.bailout_gases, key=lambda g: g.mod_m, reverse=True)):
-            use_depth = req.depth_m if i == 0 else bg.mod_m
+            if i == 0:
+                use_depth = req.depth_m
+            else:
+                use_depth = min(bg.mod_m, density_depth(bg.o2, bg.he, 5.2))
             fo2   = bg.o2 / 100.0
             d     = gas_density(bg.o2, bg.he, use_depth)
             label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))

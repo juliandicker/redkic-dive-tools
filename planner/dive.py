@@ -3,6 +3,9 @@ import math
 from dataclasses import dataclass, field
 from .buhlmann import BuhlmannModel, SURFACE_BAR
 
+_DENSITY_SWITCH_LIMIT_GL = 5.2  # g/L — don't switch to a richer gas above this density
+_MOLAR_VOLUME = 22.4             # L/mol at STP
+
 
 @dataclass
 class DecoStop:
@@ -27,6 +30,26 @@ class BailoutProfile:
     profile_points: list = field(default_factory=list)
     tissue_saturations: list = field(default_factory=list)
     gas_switches: list = field(default_factory=list)  # [{depth_m, label}]
+
+
+def _gas_density_at_depth(gas, depth_m: float) -> float:
+    surface_gl = (gas.fo2 * 32.0 + gas.fn2 * 28.0 + gas.fhe * 4.0) / _MOLAR_VOLUME
+    return surface_gl * (depth_m / 10.0 + 1.0)
+
+
+def _make_select_gas(sorted_gases):
+    """Return a _select_gas(depth_m) that picks the richest gas within ppO2 MOD
+    but skips gases exceeding the density switch limit when a less-dense
+    alternative is still available."""
+    def _select_gas(depth_m: float):
+        available = [g for g in sorted_gases if depth_m <= g.mod_m]
+        if not available:
+            return sorted_gases[-1]
+        for g in available:
+            if _gas_density_at_depth(g, depth_m) <= _DENSITY_SWITCH_LIMIT_GL:
+                return g
+        return min(available, key=lambda g: _gas_density_at_depth(g, depth_m))
+    return _select_gas
 
 
 def _depth_to_p(depth_m):
@@ -278,12 +301,7 @@ def plan_oc_dive(
     by MOD on ascent. Returns a DiveProfile with gas_switches populated.
     """
     sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
-
-    def _select_gas(depth_m):
-        for g in sorted_gases:
-            if depth_m <= g.mod_m:
-                return g
-        return sorted_gases[-1]
+    _select_gas = _make_select_gas(sorted_gases)
 
     bottom_gas = _select_gas(bottom_depth_m)
     model, runtime_min, profile_points = _build_bottom_model(
@@ -328,14 +346,8 @@ def plan_oc_bailout(
         ccr_gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high
     )
 
-    # Shallowest-MOD gas first: at any depth the diver uses the highest-O2 gas whose MOD is deep enough.
     sorted_gases = sorted(bailout_gases, key=lambda g: g.mod_m)
-
-    def _select_gas(depth_m):
-        for g in sorted_gases:
-            if depth_m <= g.mod_m:
-                return g
-        return sorted_gases[-1]  # fallback: deepest-MOD gas (no valid gas above, use deepest available)
+    _select_gas = _make_select_gas(sorted_gases)
 
     profile_points = []
     profile, gas_switches = _run_deco_ascent(

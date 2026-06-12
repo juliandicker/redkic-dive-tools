@@ -78,20 +78,20 @@ const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
   // OC examples
   { mode: 'oc', name: 'Shallow Reef (OC)', depth_m: 20, bottom_time_min: 40,
     bailout_gases: [{ o2: 21, he: 0, cyl_l: 12, cyl_bar: 232, mod_m: 54 }] },
-  { mode: 'oc', name: 'Wreck Dive (OC)', depth_m: 40, bottom_time_min: 30,
+  { mode: 'oc', name: 'Wreck Dive (OC)', depth_m: 40, bottom_time_min: 45,
     bailout_gases: [
       { o2: 21, he: 0,  cyl_l: 24, cyl_bar: 232, mod_m: 54 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
     ] },
-  { mode: 'oc', name: 'Trimix (OC)', depth_m: 60, bottom_time_min: 15,
+  { mode: 'oc', name: 'Trimix (OC)', depth_m: 60, bottom_time_min: 25,
     bailout_gases: [
       { o2: 20, he: 55, cyl_l: 24, cyl_bar: 232, mod_m: 57 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
       { o2: 80, he: 0,  cyl_l:  7, cyl_bar: 210, mod_m:  9 },
     ] },
-  { mode: 'oc', name: 'Deep Trimix (OC)', depth_m: 100, bottom_time_min: 10,
+  { mode: 'oc', name: 'Deep Trimix (OC)', depth_m: 100, bottom_time_min: 15,
     bailout_gases: [
-      { o2: 13, he: 75, cyl_l: 24, cyl_bar: 232, mod_m: 96 },
+      { o2: 10, he: 75, cyl_l: 24, cyl_bar: 232, mod_m: 96 },
       { o2: 21, he: 35, cyl_l: 12, cyl_bar: 232, mod_m: 54 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
       { o2: 100, he: 0, cyl_l:  7, cyl_bar: 210, mod_m:  6 },

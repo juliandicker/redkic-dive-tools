@@ -308,8 +308,8 @@ export default function PlanSection({
                         </tr>
                       )
                     })()}
-                    {/* No-stop ascent gas switches (between OC switch and first deco stop) */}
-                    {isBailout && (() => {
+                    {/* No-stop ascent gas switches (between bottom/OC-switch and first deco stop) */}
+                    {(isBailout || !!ocBackGas) && (() => {
                       const firstStopDepth = decoStops[0]?.depth_m ?? 0
                       const noStopSwitches = [...gasSwitches]
                         .filter(sw => sw.depth_m > firstStopDepth)
