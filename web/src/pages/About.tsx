@@ -86,7 +86,12 @@ export default function About() {
             {/* ── Gas Blender ────────────────────────────────────────── */}
             <div className="card mb-4">
               <div className="card-body">
-                <h2 className="result-heading mb-3">Gas Blender</h2>
+                <div className="d-flex align-items-center justify-content-between mb-3">
+                  <h2 className="result-heading mb-0">Gas Blender</h2>
+                  <Link to="/" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
+                    Open <i className="bi bi-arrow-right" />
+                  </Link>
+                </div>
                 <p style={{ fontSize: '0.85rem' }}>
                   The Gas Blender calculates a partial-pressure fill sequence for trimix and nitrox blends.
                   Fill in three things:
@@ -110,22 +115,24 @@ export default function About() {
                   The result is a three-step partial-pressure sequence: bleed to the base pressure → add
                   helium → add oxygen → top up with air. Follow the steps in order on the whip.
                 </p>
-                <p style={{ fontSize: '0.85rem' }}>
+                <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
                   The <strong>analysis panel</strong> shows MOD at ppO₂ 1.2, 1.4, and 1.6; gas density
                   at depth with the 5.2&nbsp;g/L limit highlighted; and equivalent narcotic depth. The{' '}
                   <strong>best-mix calculator</strong> works in reverse — give it a target depth and ppO₂
                   limit and it suggests the optimum oxygen and helium percentages.
                 </p>
-                <Link to="/" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
-                  Open Gas Blender <i className="bi bi-arrow-right" />
-                </Link>
               </div>
             </div>
 
             {/* ── Dive Planner ───────────────────────────────────────── */}
             <div className="card mb-4">
               <div className="card-body">
-                <h2 className="result-heading mb-3">Dive Planner</h2>
+                <div className="d-flex align-items-center justify-content-between mb-3">
+                  <h2 className="result-heading mb-0">Dive Planner</h2>
+                  <Link to="/planner" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
+                    Open <i className="bi bi-arrow-right" />
+                  </Link>
+                </div>
 
                 <div className="card-section-title mt-1">Mode</div>
                 <p style={{ fontSize: '0.85rem' }}>
@@ -182,15 +189,12 @@ export default function About() {
                 </p>
 
                 <div className="card-section-title">CNS and OTU</div>
-                <p style={{ fontSize: '0.85rem' }}>
+                <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
                   CNS% and OTU are tracked cumulatively across the whole dive. CNS tracks short-term
                   central nervous system oxygen toxicity; a warning fires at the threshold set in Settings
                   (default 75%). OTU tracks cumulative pulmonary exposure, useful when planning repetitive
                   dives over a day or a trip.
                 </p>
-                <Link to="/planner" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
-                  Open Dive Planner <i className="bi bi-arrow-right" />
-                </Link>
               </div>
             </div>
 
