@@ -65,7 +65,7 @@ export default function About() {
                       Look for the <strong>Loading</strong> and <strong>M-value</strong> buttons in the
                       decompression chart header. Loading shows all 16 Bühlmann compartments saturating
                       and washing out across the full dive. M-value plots each compartment's pressure
-                      against its M-value line, with the GF ceiling shown separately — so you can see
+                      against its M-value line, with the GF ceiling shown separately, so you can see
                       exactly which compartment is holding you at a stop and how close it is to the limit.
                       Click any point on the profile first to lock the view to that moment in the dive.
                       You won't find this in any other planning tool.
