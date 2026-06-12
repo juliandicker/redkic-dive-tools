@@ -179,6 +179,7 @@ export default function DivePlanner() {
 
   const [depth, setDepth]   = useState(() => load<number>('planner_depth', 40))
   const [bt,    setBt]      = useState(() => load<number>('planner_bt', 25))
+  const [lastCalcBt, setLastCalcBt] = useState<number>(0)
   const [loading, setLoading]   = useState(false)
   const [error,   setError]     = useState('')
   const [result,  setResult]    = useState<DivePlannerResponse | null>(null)
@@ -330,6 +331,7 @@ export default function DivePlanner() {
         bailout_gf_high:      effectiveSettings.bailoutGfHigh,
       } : basePayload)
       setResult(data)
+      setLastCalcBt(bt)
     } catch (e) {
       setError((e as Error).message)
       setResult(null)
@@ -774,7 +776,7 @@ export default function DivePlanner() {
                       onChange={e => setBt(parseInt(e.target.value) || 0)} />
                     <span className="input-group-text">min</span>
                   </div>
-                  {result && result.bottom_time_actual < bt && (
+                  {result && bt === lastCalcBt && result.bottom_time_actual < bt && (
                     <div className="small text-warning-emphasis" style={{ fontSize: '0.78rem', marginTop: '-0.1rem' }}>
                       <i className="bi bi-scissors me-1" />Shortened to {result.bottom_time_actual} min — insufficient gas supply
                     </div>
