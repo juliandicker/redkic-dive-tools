@@ -2,9 +2,9 @@ import copy
 import math
 from dataclasses import dataclass, field
 from .buhlmann import BuhlmannModel, SURFACE_BAR
+from gas_blender import gas_density as _gas_density_pct
 
 _DENSITY_SWITCH_LIMIT_GL = 5.2  # g/L — don't switch to a richer gas above this density
-_MOLAR_VOLUME = 22.4             # L/mol at STP
 
 
 @dataclass
@@ -23,18 +23,8 @@ class DiveProfile:
     gas_switches: list = field(default_factory=list)  # [{depth_m, label}]
 
 
-@dataclass
-class BailoutProfile:
-    stops: list = field(default_factory=list)
-    total_time_min: float = 0.0
-    profile_points: list = field(default_factory=list)
-    tissue_saturations: list = field(default_factory=list)
-    gas_switches: list = field(default_factory=list)  # [{depth_m, label}]
-
-
 def _gas_density_at_depth(gas, depth_m: float) -> float:
-    surface_gl = (gas.fo2 * 32.0 + gas.fn2 * 28.0 + gas.fhe * 4.0) / _MOLAR_VOLUME
-    return surface_gl * (depth_m / 10.0 + 1.0)
+    return _gas_density_pct(gas.fo2 * 100, gas.fhe * 100, depth_m)
 
 
 def _make_select_gas(sorted_gases):
@@ -50,10 +40,6 @@ def _make_select_gas(sorted_gases):
                 return g
         return min(available, key=lambda g: _gas_density_at_depth(g, depth_m))
     return _select_gas
-
-
-def _depth_to_p(depth_m):
-    return depth_m / 10.0 + SURFACE_BAR
 
 
 def _round_up_to_3m(depth_m):
@@ -363,10 +349,5 @@ def plan_oc_bailout(
         profile_points=profile_points,
     )
 
-    return BailoutProfile(
-        stops=profile.stops,
-        total_time_min=profile.total_time_min,
-        profile_points=profile.profile_points,
-        tissue_saturations=profile.tissue_saturations,
-        gas_switches=gas_switches,
-    )
+    profile.gas_switches = gas_switches
+    return profile

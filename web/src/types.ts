@@ -1,10 +1,9 @@
 // ── Gas Blender API ────────────────────────────────────────────────────────────
 
-export interface GasComposition { o2: number; he: number; n2: number; bar: number }
+export interface GasComposition { o2: number; he: number; bar: number }
 export interface BlendStep {
   name: string
   start_gas: GasComposition
-  add_bar: number
   result_gas: GasComposition
 }
 export interface TrimixBlendAnalysis {

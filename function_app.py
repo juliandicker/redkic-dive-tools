@@ -12,11 +12,9 @@ from gas_blender import Gas, TrimixBlend, density_depth, end_depth, gas_density,
 from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive
 from planner.gas import CCRGas, OpenCircuitGas
 from DivePlanner import (
+    _binary_search_bottom_time,
     _cns_rate,
     _compute_gas_consumption,
-    _gas_label,
-    _max_bottom_time_within_gas_supply,
-    _max_bottom_time_within_gas_supply_oc,
     _oc_cns_otu,
     _otu_rate,
 )
@@ -309,6 +307,82 @@ def dive_planner(req: DivePlannerRequest) -> DivePlannerResponse:
         return _plan_ccr(req, gf_low, gf_high, oc_gases, oc_gas_volumes)
 
 
+def _infeasibility_msg(sorted_volumes, reserve_bar, depth_m, prefix='Gas') -> str:
+    empty_gases = [
+        g.label for g, v in sorted_volumes
+        if v['cyl_l'] and v['cyl_bar']
+        and v['cyl_l'] * max(0.0, v['cyl_bar'] - reserve_bar) == 0
+    ]
+    if empty_gases:
+        have = 'has' if len(empty_gases) == 1 else 'have'
+        return (
+            f"{prefix} supply error: {', '.join(empty_gases)} {have} no usable gas after "
+            f"deducting the {reserve_bar:.0f} bar reserve. "
+            f"Increase cylinder pressure or reduce the tank reserve setting."
+        )
+    return (
+        f"{prefix} supply is insufficient even for the minimum possible dive time "
+        f"at {depth_m:.0f} m. Increase cylinder sizes, pressure, or reduce the "
+        f"{reserve_bar:.0f} bar reserve."
+    )
+
+
+def _gas_warnings(
+    gases, bottom_depth_m,
+    first_gas_type='Back gas', other_gas_type='Deco gas',
+    skip_first_density=True,
+) -> List[Warning]:
+    warnings: List[Warning] = []
+    for i, bg in enumerate(sorted(gases, key=lambda g: g.mod_m, reverse=True)):
+        use_depth = bottom_depth_m if i == 0 else min(bg.mod_m, density_depth(bg.o2, bg.he, 5.2))
+        fo2 = bg.o2 / 100.0
+        d = gas_density(bg.o2, bg.he, use_depth)
+        label = OpenCircuitGas(bg.o2, bg.he, bg.mod_m).label
+        ppo2 = fo2 * (use_depth / 10.0 + 1.0)
+        ppo2_r = round(ppo2, 2)
+        gas_type = first_gas_type if i == 0 else other_gas_type
+        if ppo2_r > 1.6:
+            warnings.append(Warning(
+                level='danger',
+                message=(
+                    f'{gas_type} {label} at {use_depth:.0f} m: '
+                    f'ppO₂ {ppo2:.2f} bar exceeds the absolute maximum (1.6 bar). '
+                    f'This gas cannot be safely breathed at this depth.'
+                ),
+            ))
+        elif ppo2_r > bg.ppo2_limit:
+            warnings.append(Warning(
+                level='warning',
+                message=(
+                    f'{gas_type} {label} at {use_depth:.0f} m: '
+                    f'ppO₂ {ppo2:.2f} bar exceeds the working limit ({bg.ppo2_limit:.1f} bar). '
+                    f'Consider a lower O₂ fraction or shallower planned depth.'
+                ),
+            ))
+        if skip_first_density and i == 0:
+            continue
+        if d > 6.3:
+            warnings.append(Warning(
+                level='danger',
+                message=(
+                    f'{gas_type} {label} at {use_depth:.0f} m: '
+                    f'gas density {d:.2f} g/L exceeds the upper limit (6.3 g/L). '
+                    f'This gas cannot be safely breathed at this depth — '
+                    f'consider a less dense alternative or reducing planned depth.'
+                ),
+            ))
+        elif d > 5.2:
+            warnings.append(Warning(
+                level='warning',
+                message=(
+                    f'{gas_type} {label} at {use_depth:.0f} m: '
+                    f'gas density {d:.2f} g/L exceeds the recommended limit (5.2 g/L). '
+                    f'Increased work of breathing.'
+                ),
+            ))
+    return warnings
+
+
 def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
     sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
     sorted_volumes = sorted(zip(oc_gases, oc_gas_volumes), key=lambda x: x[0].mod_m)
@@ -324,41 +398,25 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
     gas_infeasible_msg = None
 
     if any(a < math.inf for a in available_L):
-        result_bt, shortened = _max_bottom_time_within_gas_supply_oc(
+        result_bt, shortened = _binary_search_bottom_time(
+            planner_fn=lambda bt: plan_oc_dive(
+                oc_gases, req.depth_m, bt, gf_low, gf_high,
+                desc_rate_mpm=req.desc_rate_mpm,
+                asc_rate_deep_mpm=req.asc_rate_deep_mpm,
+                asc_rate_shallow_mpm=req.asc_rate_shallow_mpm,
+                last_stop_m=req.last_stop_m,
+            ),
             depth_m=req.depth_m,
             requested_bt=req.bottom_time_min,
             desc_rate_mpm=req.desc_rate_mpm,
-            oc_gases=oc_gases,
             sorted_gases=sorted_gases,
             available_L=available_L,
-            gf_low=gf_low,
-            gf_high=gf_high,
-            asc_rate_deep=req.asc_rate_deep_mpm,
-            asc_rate_shallow=req.asc_rate_shallow_mpm,
-            last_stop_m=req.last_stop_m,
             sac_bottom=req.sac_bottom_lpm,
             sac_deco=req.sac_deco_lpm,
         )
         if result_bt is None:
             gas_infeasible = True
-            empty_gases = [
-                _gas_label(g) for g, v in sorted_volumes
-                if v['cyl_l'] and v['cyl_bar']
-                and v['cyl_l'] * max(0.0, v['cyl_bar'] - req.reserve_bar) == 0
-            ]
-            if empty_gases:
-                gas_infeasible_msg = (
-                    f"Gas supply error: {', '.join(empty_gases)} "
-                    f"{'has' if len(empty_gases) == 1 else 'have'} no usable gas after "
-                    f"deducting the {req.reserve_bar:.0f} bar reserve. "
-                    f"Increase cylinder pressure or reduce the tank reserve setting."
-                )
-            else:
-                gas_infeasible_msg = (
-                    f"Gas supply is insufficient even for the minimum possible dive time "
-                    f"at {req.depth_m:.0f} m. Increase cylinder sizes, pressure, or reduce the "
-                    f"{req.reserve_bar:.0f} bar reserve."
-                )
+            gas_infeasible_msg = _infeasibility_msg(sorted_volumes, req.reserve_bar, req.depth_m, prefix='Gas')
         else:
             bottom_time_actual, bottom_time_shortened = result_bt, shortened
 
@@ -379,27 +437,6 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
     density_gl = gas_density(bottom_gas_input.o2, bottom_gas_input.he, req.depth_m)
     warnings: List[Warning] = []
 
-    if density_gl > 6.3:
-        label = _gas_label(OpenCircuitGas(bottom_gas_input.o2, bottom_gas_input.he, bottom_gas_input.mod_m))
-        warnings.append(Warning(
-            level='danger',
-            message=(
-                f'Back gas {label} density exceeds the BSAC upper limit '
-                f'({density_gl:.2f} g/L — limit 6.3 g/L). '
-                f'This gas is not safe to breathe at {req.depth_m:.0f} m.'
-            ),
-        ))
-    elif density_gl > 5.2:
-        label = _gas_label(OpenCircuitGas(bottom_gas_input.o2, bottom_gas_input.he, bottom_gas_input.mod_m))
-        warnings.append(Warning(
-            level='warning',
-            message=(
-                f'Back gas {label} density exceeds the BSAC recommended limit '
-                f'({density_gl:.2f} g/L — recommended ≤5.2 g/L). '
-                f'Increased work of breathing and CO₂ retention risk.'
-            ),
-        ))
-
     if gas_infeasible:
         warnings.append(Warning(level='danger', message=gas_infeasible_msg))
     elif bottom_time_shortened:
@@ -411,54 +448,11 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
             ),
         ))
 
-    # Per-gas ppO2 and density warnings (all gases, deepest checked at bottom depth)
-    for i, bg in enumerate(sorted(req.bailout_gases, key=lambda g: g.mod_m, reverse=True)):
-        if i == 0:
-            use_depth = req.depth_m
-        else:
-            # Density-aware switching delays the gas to shallower depths; warn at actual first-use depth
-            use_depth = min(bg.mod_m, density_depth(bg.o2, bg.he, 5.2))
-        fo2   = bg.o2 / 100.0
-        d     = gas_density(bg.o2, bg.he, use_depth)
-        label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))
-        ppo2   = fo2 * (use_depth / 10.0 + 1.0)
-        ppo2_r = round(ppo2, 2)
-        gas_type = 'Back gas' if i == 0 else 'Deco gas'
-        if ppo2_r > 1.6:
-            warnings.append(Warning(
-                level='danger',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'ppO₂ {ppo2:.2f} bar exceeds the absolute maximum (1.6 bar). '
-                    f'This gas cannot be safely breathed at this depth.'
-                ),
-            ))
-        elif ppo2_r > bg.ppo2_limit:
-            warnings.append(Warning(
-                level='warning',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'ppO₂ {ppo2:.2f} bar exceeds the working limit ({bg.ppo2_limit:.1f} bar). '
-                    f'Consider a lower O₂ fraction or shallower planned depth.'
-                ),
-            ))
-        if d > 6.3 and i != 0:  # back gas density already warned above
-            warnings.append(Warning(
-                level='danger',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'gas density {d:.2f} g/L exceeds the upper limit (6.3 g/L).'
-                ),
-            ))
-        elif d > 5.2 and i != 0:
-            warnings.append(Warning(
-                level='warning',
-                message=(
-                    f'{gas_type} {label} at {use_depth:.0f} m: '
-                    f'gas density {d:.2f} g/L exceeds the recommended limit (5.2 g/L). '
-                    f'Increased work of breathing.'
-                ),
-            ))
+    warnings.extend(_gas_warnings(
+        req.bailout_gases, req.depth_m,
+        first_gas_type='Back gas', other_gas_type='Deco gas',
+        skip_first_density=False,
+    ))
 
     tts_min = round(max(0.0, profile.total_time_min - bottom_time_actual), 1)
     oc_cns, oc_otu = _oc_cns_otu(profile, sorted_gases)
@@ -538,42 +532,30 @@ def _plan_ccr(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
             for _, v in sorted_volumes
         ]
         if any(a < math.inf for a in available_L):
-            result_bt, shortened = _max_bottom_time_within_gas_supply(
-                ccr_gas=gas,
+            result_bt, shortened = _binary_search_bottom_time(
+                planner_fn=lambda bt: plan_oc_bailout(
+                    ccr_gas=gas,
+                    bottom_depth_m=req.depth_m,
+                    bottom_time_min=bt,
+                    desc_rate_mpm=req.desc_rate_mpm,
+                    bailout_gases=oc_gases,
+                    gf_low=bailout_gf_low,
+                    gf_high=bailout_gf_high,
+                    asc_rate_deep_mpm=req.asc_rate_deep_mpm,
+                    asc_rate_shallow_mpm=req.asc_rate_shallow_mpm,
+                    last_stop_m=req.last_stop_m,
+                ),
                 depth_m=req.depth_m,
                 requested_bt=req.bottom_time_min,
                 desc_rate_mpm=req.desc_rate_mpm,
-                oc_gases=oc_gases,
                 sorted_gases=sorted_gases,
                 available_L=available_L,
-                gf_low=bailout_gf_low,
-                gf_high=bailout_gf_high,
-                asc_rate_deep=req.asc_rate_deep_mpm,
-                asc_rate_shallow=req.asc_rate_shallow_mpm,
-                last_stop_m=req.last_stop_m,
                 sac_bottom=req.sac_bottom_lpm,
                 sac_deco=req.sac_deco_lpm,
             )
             if result_bt is None:
                 bailout_infeasible = True
-                empty_gases = [
-                    _gas_label(g) for g, v in sorted_volumes
-                    if v['cyl_l'] and v['cyl_bar']
-                    and v['cyl_l'] * max(0.0, v['cyl_bar'] - req.reserve_bar) == 0
-                ]
-                if empty_gases:
-                    bailout_infeasible_msg = (
-                        f"Bailout gas supply error: {', '.join(empty_gases)} "
-                        f"{'has' if len(empty_gases) == 1 else 'have'} no usable gas after "
-                        f"deducting the {req.reserve_bar:.0f} bar reserve. "
-                        f"Increase cylinder pressure or reduce the tank reserve setting."
-                    )
-                else:
-                    bailout_infeasible_msg = (
-                        f"Bailout gas supply is insufficient even for the minimum possible dive time "
-                        f"at {req.depth_m:.0f} m. Increase cylinder sizes, pressure, or reduce the "
-                        f"{req.reserve_bar:.0f} bar reserve."
-                    )
+                bailout_infeasible_msg = _infeasibility_msg(sorted_volumes, req.reserve_bar, req.depth_m, prefix='Bailout gas')
             else:
                 bottom_time_actual, bottom_time_shortened = result_bt, shortened
 
@@ -649,53 +631,11 @@ def _plan_ccr(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
         ))
 
     if oc_gases:
-        for i, bg in enumerate(sorted(req.bailout_gases, key=lambda g: g.mod_m, reverse=True)):
-            if i == 0:
-                use_depth = req.depth_m
-            else:
-                use_depth = min(bg.mod_m, density_depth(bg.o2, bg.he, 5.2))
-            fo2   = bg.o2 / 100.0
-            d     = gas_density(bg.o2, bg.he, use_depth)
-            label = _gas_label(OpenCircuitGas(bg.o2, bg.he, bg.mod_m))
-            ppo2      = fo2 * (use_depth / 10.0 + 1.0)
-            ppo2_r    = round(ppo2, 2)
-            if ppo2_r > 1.6:
-                warnings.append(Warning(
-                    level='danger',
-                    message=(
-                        f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'ppO₂ {ppo2:.2f} bar exceeds the absolute maximum (1.6 bar). '
-                        f'This gas cannot be safely breathed at this depth.'
-                    ),
-                ))
-            elif ppo2_r > bg.ppo2_limit:
-                warnings.append(Warning(
-                    level='warning',
-                    message=(
-                        f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'ppO₂ {ppo2:.2f} bar exceeds the working limit ({bg.ppo2_limit:.1f} bar). '
-                        f'Consider a lower O₂ fraction or shallower planned depth.'
-                    ),
-                ))
-            if d > 6.3:
-                warnings.append(Warning(
-                    level='danger',
-                    message=(
-                        f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'gas density {d:.2f} g/L exceeds the upper limit (6.3 g/L). '
-                        f'This gas cannot be safely breathed at this depth — '
-                        f'consider a less dense alternative or reducing planned depth.'
-                    ),
-                ))
-            elif d > 5.2:
-                warnings.append(Warning(
-                    level='warning',
-                    message=(
-                        f'Bailout gas {label} at {use_depth:.0f} m: '
-                        f'gas density {d:.2f} g/L exceeds the recommended limit (5.2 g/L). '
-                        f'Increased work of breathing at bailout depth.'
-                    ),
-                ))
+        warnings.extend(_gas_warnings(
+            req.bailout_gases, req.depth_m,
+            first_gas_type='Bailout gas', other_gas_type='Bailout gas',
+            skip_first_density=False,
+        ))
 
     bailout_plan: Optional[BailoutPlan] = None
     if oc_gases and not bailout_infeasible:
@@ -746,7 +686,7 @@ def _plan_ccr(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
                     for s in bailout.stops
                 ],
                 total_time_min=bailout.total_time_min,
-                tts_min=round(bailout.total_time_min, 1),
+                tts_min=round(max(0.0, bailout.total_time_min - bottom_time_actual), 1),
                 cns_pct=bailout_cns,
                 otu=bailout_otu,
                 gas_switches=[

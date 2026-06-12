@@ -49,8 +49,3 @@ export function gasName(o2: number, he: number): string {
   return `Tx${o2}/${he}`
 }
 
-export function gasNameCompact(o2: number, he: number): string {
-  if (o2 === 100) return 'O₂'
-  if (he === 0) return o2 === 21 ? 'Air' : `${o2}%`
-  return `${o2}/${he}`
-}

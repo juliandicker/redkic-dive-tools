@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
 import GasBar from '../components/GasBar'
+import LoadingSpinner from '../components/LoadingSpinner'
 import { trimixBlend } from '../api'
 import type { TrimixBlendResponse } from '../types'
 
@@ -11,6 +12,58 @@ interface GasInputs {
   startBar: number; startO2: number; startHe: number
   finishBar: number; finishO2: number; finishHe: number
   heliumBar: number; heliumO2: number; heliumHe: number
+}
+
+function GasCard({
+  label, barField, o2Field, heField, bar, o2, he, presets, onPreset, onBestMix, setField
+}: {
+  label: string; barField: keyof GasInputs; o2Field: keyof GasInputs; heField: keyof GasInputs
+  bar: number; o2: number; he: number
+  setField: (field: keyof GasInputs, val: string) => void
+  presets?: [number, number][]; onPreset?: (o2: number, he: number) => void
+  onBestMix?: () => void
+}) {
+  return (
+    <div className="card">
+      <div className="card-body">
+        <div className="card-section-title">{label}</div>
+        <div className="d-flex flex-column gap-2">
+          <div className="input-group input-group-sm">
+            <span className="input-group-text">Bar</span>
+            <input type="number" className="form-control" value={bar}
+              onChange={e => setField(barField, e.target.value)} />
+          </div>
+          <div className="input-group input-group-sm">
+            <span className="input-group-text">O₂ %</span>
+            <input type="number" className="form-control" min={0} max={100} value={o2}
+              onChange={e => setField(o2Field, e.target.value)} />
+          </div>
+          <div className="input-group input-group-sm">
+            <span className="input-group-text">He %</span>
+            <input type="number" className="form-control" min={0} max={100} value={he}
+              onChange={e => setField(heField, e.target.value)} />
+          </div>
+        </div>
+        <GasBar o2={o2} he={he} showLegend />
+        {presets && onPreset && (
+          <div className="preset-grid mt-2">
+            {presets.map(([po2, phe]) => (
+              <button key={`${po2}/${phe}`} className="preset-btn" onClick={() => onPreset(po2, phe)}>
+                {phe > 0 ? `${po2}/${phe}` : `${po2}%`}
+              </button>
+            ))}
+          </div>
+        )}
+        {onBestMix && (
+          <button className="btn btn-sm w-100 mt-2"
+            style={{ background: '#eef2f8', color: 'var(--ocean)', fontSize: '0.75rem', fontWeight: 600, border: '1px solid var(--border)' }}
+            onClick={onBestMix}>
+            <i className="bi bi-stars me-1" />Best Mix
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function GasBlender() {
@@ -79,57 +132,6 @@ export default function GasBlender() {
     setInputs(prev => ({ ...prev, finishBar: 232, finishO2: o2, finishHe: he }))
   }
 
-  function GasCard({
-    label, barField, o2Field, heField, bar, o2, he, presets, onPreset, onBestMix
-  }: {
-    label: string; barField: keyof GasInputs; o2Field: keyof GasInputs; heField: keyof GasInputs
-    bar: number; o2: number; he: number
-    presets?: [number, number][]; onPreset?: (o2: number, he: number) => void
-    onBestMix?: () => void
-  }) {
-    return (
-      <div className="card">
-        <div className="card-body">
-          <div className="card-section-title">{label}</div>
-          <div className="d-flex flex-column gap-2">
-            <div className="input-group input-group-sm">
-              <span className="input-group-text">Bar</span>
-              <input type="number" className="form-control" value={bar}
-                onChange={e => setField(barField, e.target.value)} />
-            </div>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text">O₂ %</span>
-              <input type="number" className="form-control" min={0} max={100} value={o2}
-                onChange={e => setField(o2Field, e.target.value)} />
-            </div>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text">He %</span>
-              <input type="number" className="form-control" min={0} max={100} value={he}
-                onChange={e => setField(heField, e.target.value)} />
-            </div>
-          </div>
-          <GasBar o2={o2} he={he} showLegend />
-          {presets && onPreset && (
-            <div className="preset-grid mt-2">
-              {presets.map(([po2, phe]) => (
-                <button key={`${po2}/${phe}`} className="preset-btn" onClick={() => onPreset(po2, phe)}>
-                  {phe > 0 ? `${po2}/${phe}` : `${po2}%`}
-                </button>
-              ))}
-            </div>
-          )}
-          {onBestMix && (
-            <button className="btn btn-sm w-100 mt-2"
-              style={{ background: '#eef2f8', color: 'var(--ocean)', fontSize: '0.75rem', fontWeight: 600, border: '1px solid var(--border)' }}
-              onClick={onBestMix}>
-              <i className="bi bi-stars me-1" />Best Mix
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
       <Header
@@ -141,27 +143,21 @@ export default function GasBlender() {
         <div className="row g-3 mb-3">
           <div className="col-12 col-sm-4">
             <GasCard label="Start Gas" barField="startBar" o2Field="startO2" heField="startHe"
-              bar={inputs.startBar} o2={inputs.startO2} he={inputs.startHe} />
+              bar={inputs.startBar} o2={inputs.startO2} he={inputs.startHe} setField={setField} />
           </div>
           <div className="col-12 col-sm-4">
             <GasCard label="Target Gas" barField="finishBar" o2Field="finishO2" heField="finishHe"
               bar={inputs.finishBar} o2={inputs.finishO2} he={inputs.finishHe}
               presets={[[21,0],[21,35],[18,45],[15,55],[12,60],[10,70],[21,30],[18,35]]}
-              onPreset={applyPreset}
-              onBestMix={() => setBmOpen(true)} />
+              onPreset={applyPreset} onBestMix={() => setBmOpen(true)} setField={setField} />
           </div>
           <div className="col-12 col-sm-4">
             <GasCard label="Helium Bank" barField="heliumBar" o2Field="heliumO2" heField="heliumHe"
-              bar={inputs.heliumBar} o2={inputs.heliumO2} he={inputs.heliumHe} />
+              bar={inputs.heliumBar} o2={inputs.heliumO2} he={inputs.heliumHe} setField={setField} />
           </div>
         </div>
 
-        {loading && (
-          <div className="loading-spinner text-center py-3">
-            <div className="spinner-border" />
-            <div className="text-muted mt-1">Calculating…</div>
-          </div>
-        )}
+        {loading && <LoadingSpinner />}
         {error && <div className="alert alert-danger rounded-3">{error}</div>}
         {result && <Results data={result} />}
       </div>

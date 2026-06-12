@@ -3,6 +3,8 @@ import Offcanvas from 'react-bootstrap/Offcanvas'
 import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
 import GasBar from '../components/GasBar'
+import GFPresets from '../components/GFPresets'
+import LoadingSpinner from '../components/LoadingSpinner'
 import PlanSection from '../components/PlanSection'
 import { divePlan } from '../api'
 import { load, save } from '../storage'
@@ -794,12 +796,7 @@ export default function DivePlanner() {
         {diveMode === 'oc' && effectiveBailout.length === 0 && (
           <div className="alert alert-info rounded-3">Select at least one deco gas to plan a dive.</div>
         )}
-        {loading && (
-          <div className="loading-spinner text-center py-3">
-            <div className="spinner-border" />
-            <div className="text-muted mt-1">Planning decompression…</div>
-          </div>
-        )}
+        {loading && <LoadingSpinner message="Planning decompression…" />}
         {error && <div className="alert alert-danger rounded-3">{error}</div>}
 
         {sharedPayload && (
@@ -1204,15 +1201,7 @@ function SettingsBody({ settings, setSettings, diveMode }: SettingsBodyProps) {
           <span className="input-group-text">%</span>
         </div>
       </div>
-      <div className="d-flex align-items-center flex-wrap gap-1 mb-3">
-        {[[30,70,'Shearwater · 30/70'],[60,80,'BSAC Trimix · 60/80'],[85,95,'BSAC Air/Nitrox · 85/95']].map(([l,h,label]) => (
-          <button key={String(label)} className="btn btn-sm btn-outline-secondary"
-            style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
-            onClick={() => setSettings(prev => ({ ...prev, gfLow: Number(l), gfHigh: Number(h) }))}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <GFPresets onSelect={(l, h) => setSettings(prev => ({ ...prev, gfLow: l, gfHigh: h }))} />
 
       {diveMode === 'ccr' && (
         <>
@@ -1231,20 +1220,16 @@ function SettingsBody({ settings, setSettings, diveMode }: SettingsBodyProps) {
               <span className="input-group-text">%</span>
             </div>
           </div>
-          <div className="d-flex align-items-center flex-wrap gap-1 mb-3">
-            {[[30,70,'Shearwater · 30/70'],[60,80,'BSAC Trimix · 60/80'],[85,95,'BSAC Air/Nitrox · 85/95']].map(([l,h,label]) => (
-              <button key={String(label)} className="btn btn-sm btn-outline-secondary"
+          <GFPresets
+            onSelect={(l, h) => setSettings(prev => ({ ...prev, bailoutGfLow: l, bailoutGfHigh: h }))}
+            extraButtons={
+              <button className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
-                onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: Number(l), bailoutGfHigh: Number(h) }))}>
-                {label}
+                onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: prev.gfLow, bailoutGfHigh: prev.gfHigh }))}>
+                Same as main
               </button>
-            ))}
-            <button className="btn btn-sm btn-outline-secondary"
-              style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
-              onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: prev.gfLow, bailoutGfHigh: prev.gfHigh }))}>
-              Same as main
-            </button>
-          </div>
+            }
+          />
         </>
       )}
 

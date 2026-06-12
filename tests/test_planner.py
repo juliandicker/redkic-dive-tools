@@ -2,9 +2,9 @@ import math
 import pytest
 from gas_blender import gas_density
 from planner.gas import CCRGas, OpenCircuitGas
-from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive, DiveProfile, BailoutProfile
+from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive, DiveProfile
 from planner.buhlmann import WATER_VAPOUR_BAR, SURFACE_BAR
-from DivePlanner import _compute_gas_consumption, _max_bottom_time_within_gas_supply, _max_bottom_time_within_gas_supply_oc
+from DivePlanner import _binary_search_bottom_time, _compute_gas_consumption
 
 
 class TestPlannerStructure:
@@ -208,7 +208,7 @@ class TestPlanOcBailoutStructural:
         return plan_oc_bailout(ccr_gas, 60, 20, 20.0, oc_gases, 0.5, 0.8)
 
     def test_returns_bailout_profile(self, bailout):
-        assert isinstance(bailout, BailoutProfile)
+        assert isinstance(bailout, DiveProfile)
 
     def test_stops_are_multiples_of_3m(self, bailout):
         for stop in bailout.stops:
@@ -350,67 +350,49 @@ class TestGasSupplyShortening:
         sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
         return ccr_gas, oc_gases, sorted_gases
 
+    def _ccr_search(self, ccr_gas, oc_gases, sorted_gases, available_L, requested_bt=20,
+                    gf_low=0.5, gf_high=0.8, sac_bottom=20, sac_deco=15):
+        return _binary_search_bottom_time(
+            planner_fn=lambda bt: plan_oc_bailout(
+                ccr_gas=ccr_gas, bottom_depth_m=60, bottom_time_min=bt, desc_rate_mpm=20,
+                bailout_gases=oc_gases, gf_low=gf_low, gf_high=gf_high,
+                asc_rate_deep_mpm=9, asc_rate_shallow_mpm=3, last_stop_m=3,
+            ),
+            depth_m=60, requested_bt=requested_bt, desc_rate_mpm=20,
+            sorted_gases=sorted_gases, available_L=available_L,
+            sac_bottom=sac_bottom, sac_deco=sac_deco,
+        )
+
     def test_no_shortening_when_gas_unlimited(self):
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
-        available = [math.inf] * len(sorted_gases)
-        bt, shortened = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases, available_L=available,
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [math.inf] * 3)
         assert not shortened
         assert bt == pytest.approx(20, abs=0.1)
 
     def test_shortening_occurs_when_small_cylinder(self):
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
         # 7L × 80 bar = 560 L per gas — tight but feasible for a minimal dive
-        available = [560, 560, 560]
-        bt, shortened = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases, available_L=available,
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [560, 560, 560])
         # Either shortened (bt < 20) or infeasible (None) — both are acceptable responses
         assert (bt is None) or (shortened and bt < 20)
 
     def test_shortened_time_still_exceeds_descent(self):
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
         # 7L × 100 bar = 700 L — should be enough for a short dive but not 20 min
-        available = [700, 700, 700]
-        bt, _ = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases, available_L=available,
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, _ = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [700, 700, 700])
         if bt is not None:
-            descent_time = 60 / 20
-            assert bt > descent_time
+            assert bt > 60 / 20  # must exceed descent time
 
     def test_large_cylinder_no_shortening(self):
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
         # 40L × 300 bar = 12000 L per gas — far more than needed
-        available = [12000, 12000, 12000]
-        bt, shortened = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases, available_L=available,
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [12000, 12000, 12000])
         assert not shortened
         assert bt == pytest.approx(20, abs=0.1)
 
     def test_returns_none_when_zero_available_gas(self):
-        # available_L=0 means no gas at all — infeasible, should return None
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
-        bt, shortened = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases, available_L=[0, 0, 0],
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [0, 0, 0])
         assert bt is None
         assert shortened
 
@@ -419,20 +401,8 @@ class TestGasSupplyShortening:
         # 7L × 200 bar with no reserve  → 7 × 200 = 1400 L usable
         # The version with reserve should run out sooner → shorter max bottom time
         ccr_gas, oc_gases, sorted_gases = self._gases_and_context()
-        bt_full, _ = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases,
-            available_L=[1400, 1400, 1400],
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
-        bt_reserve, _ = _max_bottom_time_within_gas_supply(
-            ccr_gas=ccr_gas, depth_m=60, requested_bt=20, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases,
-            available_L=[1050, 1050, 1050],
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt_full, _   = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [1400, 1400, 1400])
+        bt_reserve, _ = self._ccr_search(ccr_gas, oc_gases, sorted_gases, [1050, 1050, 1050])
         # With less gas, we either shorten more OR both fit — but reserve must be ≤ full
         assert (bt_reserve is None or bt_full is None) or bt_reserve <= bt_full
 
@@ -510,16 +480,21 @@ class TestOcGasSupplyShortening:
             OpenCircuitGas(100, 0, 6),
         ]
 
+    def _oc_search(self, oc_gases, sorted_gases, available_L, requested_bt=25):
+        return _binary_search_bottom_time(
+            planner_fn=lambda bt: plan_oc_dive(
+                oc_gases, 60, bt, 0.5, 0.8,
+                desc_rate_mpm=20, asc_rate_deep_mpm=9, asc_rate_shallow_mpm=3, last_stop_m=3,
+            ),
+            depth_m=60, requested_bt=requested_bt, desc_rate_mpm=20,
+            sorted_gases=sorted_gases, available_L=available_L,
+            sac_bottom=20, sac_deco=15,
+        )
+
     def test_no_shortening_when_unlimited(self):
         oc_gases = self._gases()
         sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
-        bt, shortened = _max_bottom_time_within_gas_supply_oc(
-            depth_m=60, requested_bt=25, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases,
-            available_L=[math.inf] * 3,
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._oc_search(oc_gases, sorted_gases, [math.inf] * 3)
         assert not shortened
         assert bt == pytest.approx(25, abs=0.1)
 
@@ -527,24 +502,12 @@ class TestOcGasSupplyShortening:
         oc_gases = self._gases()
         sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
         # Very tight back gas supply to force shortening
-        bt, shortened = _max_bottom_time_within_gas_supply_oc(
-            depth_m=60, requested_bt=25, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases,
-            available_L=[200, math.inf, math.inf],  # only 200L back gas
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._oc_search(oc_gases, sorted_gases, [200, math.inf, math.inf])
         assert (bt is None) or (shortened and bt < 25)
 
     def test_returns_none_with_zero_gas(self):
         oc_gases = self._gases()
         sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
-        bt, shortened = _max_bottom_time_within_gas_supply_oc(
-            depth_m=60, requested_bt=25, desc_rate_mpm=20,
-            oc_gases=oc_gases, sorted_gases=sorted_gases,
-            available_L=[0, 0, 0],
-            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
-            last_stop_m=3, sac_bottom=20, sac_deco=15,
-        )
+        bt, shortened = self._oc_search(oc_gases, sorted_gases, [0, 0, 0])
         assert bt is None
         assert shortened
