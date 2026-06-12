@@ -18,9 +18,8 @@ export default function About() {
               <div className="card-body">
                 <h2 className="result-heading mb-3">What makes this different</h2>
                 <p className="mb-4" style={{ color: 'var(--muted)', fontSize: '0.88rem' }}>
-                  There are a handful of good decompression planning tools out there — OVM, Subsurface,
-                  Shearwater. These were built alongside them, not to replace them, but to fill gaps that
-                  mattered in practice.
+                  These tools were built to scratch a specific itch — features that kept coming up in
+                  practice but weren't easy to find in one place.
                 </p>
 
                 <div className="d-flex gap-3 mb-4">
@@ -210,10 +209,9 @@ export default function About() {
                       For educational purposes
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                      These tools are implemented carefully and cross-validated against OVM, but they
+                      These tools are implemented carefully and the results are cross-validated, but they
                       are not certified decompression planning software. Before using any plan in the
-                      water, validate it with an approved tool — OVM, Subsurface, or your dive computer's
-                      planning mode.
+                      water, validate it with your approved dive planning software or dive computer.
                     </p>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
                       If you find a bug, a result that doesn't look right, or have a suggestion, please{' '}
