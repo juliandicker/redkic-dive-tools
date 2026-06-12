@@ -66,6 +66,8 @@ const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
     bailout_gases: [{ o2: 50, he: 0 }, { o2: 21, he: 25 }] },
   { name: 'Trimix Dive',  gas: { o2: 16, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20,
     bailout_gases: [{ o2: 50, he: 0 }, { o2: 20, he: 55 }] },
+  { name: 'Deep Trimix Dive',  gas: { o2: 12, he: 75, setpoint: 1.3 }, depth_m: 100, bottom_time_min: 15,
+    bailout_gases: [{ o2: 80, he: 0 }, { o2: 50, he: 0 }, { o2: 20, he: 55 }, { o2: 13, he: 75 }] },
 ]
 
 function makeGasLibrary(): GasEntry[] {
