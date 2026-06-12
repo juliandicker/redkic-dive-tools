@@ -17,6 +17,7 @@ class DiveProfile:
     total_time_min: float = 0.0
     profile_points: list = field(default_factory=list)  # [{t, d, c, sats}] time/depth/ceiling (m)
     tissue_saturations: list = field(default_factory=list)  # saturation ratio per compartment
+    gas_switches: list = field(default_factory=list)  # [{depth_m, label}]
 
 
 @dataclass
@@ -244,7 +245,7 @@ def plan_ccr_dive(
     model, runtime_min, profile_points = _build_bottom_model(
         gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high
     )
-    profile, _ = _run_deco_ascent(
+    profile, gas_switches = _run_deco_ascent(
         model=model,
         start_depth=bottom_depth_m,
         gf_low=gf_low,
@@ -256,6 +257,51 @@ def plan_ccr_dive(
         runtime_min=runtime_min,
         profile_points=profile_points,
     )
+    profile.gas_switches = gas_switches
+    return profile
+
+
+def plan_oc_dive(
+    oc_gases,
+    bottom_depth_m,
+    bottom_time_min,
+    gf_low,
+    gf_high,
+    desc_rate_mpm=20.0,
+    asc_rate_deep_mpm=9.0,
+    asc_rate_shallow_mpm=3.0,
+    last_stop_m=3,
+):
+    """Plan a full OC dive from surface to surface.
+
+    Selects the deepest-MOD gas for the bottom phase; switches to richer gases
+    by MOD on ascent. Returns a DiveProfile with gas_switches populated.
+    """
+    sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
+
+    def _select_gas(depth_m):
+        for g in sorted_gases:
+            if depth_m <= g.mod_m:
+                return g
+        return sorted_gases[-1]
+
+    bottom_gas = _select_gas(bottom_depth_m)
+    model, runtime_min, profile_points = _build_bottom_model(
+        bottom_gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high
+    )
+    profile, gas_switches = _run_deco_ascent(
+        model=model,
+        start_depth=bottom_depth_m,
+        gf_low=gf_low,
+        gf_high=gf_high,
+        gas_at_depth=_select_gas,
+        asc_rate_deep_mpm=asc_rate_deep_mpm,
+        asc_rate_shallow_mpm=asc_rate_shallow_mpm,
+        last_stop_m=last_stop_m,
+        runtime_min=runtime_min,
+        profile_points=profile_points,
+    )
+    profile.gas_switches = gas_switches
     return profile
 
 

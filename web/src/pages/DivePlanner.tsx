@@ -42,16 +42,21 @@ const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 19, he: 55, setpoint: 1.3, active: false },
   { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
-const DEFAULT_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m: 10, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l: 11, cyl_bar: 210, active: false },
+const DEFAULT_CCR_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  2,   cyl_bar: 200, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  5.7, cyl_bar: 207, active: false },
+  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l:  5.7, cyl_bar: 207, active: false },
+  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l:  5.7, cyl_bar: 207, active: false },
+  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l: 11.1, cyl_bar: 207, active: false },
+]
+const DEFAULT_OC_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  7, cyl_bar: 210, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  7, cyl_bar: 210, active: false },
   { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 0,  ppo2_limit: 1.4, mod_m: 30, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 21,  he: 25, ppo2_limit: 1.4, mod_m: 41, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 20,  he: 55, ppo2_limit: 1.4, mod_m: 60, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 16,  he: 70, ppo2_limit: 1.4, mod_m: 77, cyl_l: 11, cyl_bar: 210, active: false },
-  { o2: 13,  he: 75, ppo2_limit: 1.4, mod_m: 97, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 36,  he: 0,  ppo2_limit: 1.4, mod_m: 27, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 32,  he: 0,  ppo2_limit: 1.4, mod_m: 33, cyl_l: 12, cyl_bar: 232, active: false },
+  { o2: 21,  he: 0,  ppo2_limit: 1.4, mod_m: 54, cyl_l: 12, cyl_bar: 232, active: false },
+  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l: 12, cyl_bar: 232, active: false },
 ]
 const DEFAULT_SETTINGS: PlannerSettings = {
   gfLow: 60, gfHigh: 80,
@@ -61,23 +66,49 @@ const DEFAULT_SETTINGS: PlannerSettings = {
   sacBottom: 25, sacDeco: 15, reserveBar: 50,
 }
 const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
-  { name: 'Shallow Reef', gas: { o2: 21, he: 0,  setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45,
+  // CCR examples
+  { mode: 'ccr', name: 'Shallow Reef', gas: { o2: 21, he: 0, setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45,
     bailout_gases: [{ o2: 21, he: 0 }] },
-  { name: 'Wreck Dive',   gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25,
+  { mode: 'ccr', name: 'Wreck Dive',   gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25,
     bailout_gases: [{ o2: 50, he: 0 }, { o2: 21, he: 25 }] },
-  { name: 'Trimix Dive',  gas: { o2: 16, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20,
+  { mode: 'ccr', name: 'Trimix Dive',  gas: { o2: 16, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20,
     bailout_gases: [{ o2: 50, he: 0 }, { o2: 20, he: 55 }] },
-  { name: 'Deep Trimix Dive',  gas: { o2: 12, he: 75, setpoint: 1.3 }, depth_m: 100, bottom_time_min: 15,
+  { mode: 'ccr', name: 'Deep Trimix Dive', gas: { o2: 12, he: 75, setpoint: 1.3 }, depth_m: 100, bottom_time_min: 15,
     bailout_gases: [{ o2: 80, he: 0 }, { o2: 50, he: 0 }, { o2: 20, he: 55 }, { o2: 13, he: 75 }] },
+  // OC examples
+  { mode: 'oc', name: 'Shallow Reef (OC)', depth_m: 20, bottom_time_min: 40,
+    bailout_gases: [{ o2: 21, he: 0, cyl_l: 12, cyl_bar: 232, mod_m: 54 }] },
+  { mode: 'oc', name: 'Wreck Dive (OC)', depth_m: 40, bottom_time_min: 30,
+    bailout_gases: [
+      { o2: 21, he: 0,  cyl_l: 24, cyl_bar: 232, mod_m: 54 },
+      { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
+    ] },
+  { mode: 'oc', name: 'Trimix (OC)', depth_m: 60, bottom_time_min: 15,
+    bailout_gases: [
+      { o2: 20, he: 55, cyl_l: 24, cyl_bar: 232, mod_m: 57 },
+      { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
+      { o2: 80, he: 0,  cyl_l:  7, cyl_bar: 210, mod_m:  9 },
+    ] },
+  { mode: 'oc', name: 'Deep Trimix (OC)', depth_m: 100, bottom_time_min: 10,
+    bailout_gases: [
+      { o2: 13, he: 75, cyl_l: 24, cyl_bar: 232, mod_m: 96 },
+      { o2: 21, he: 35, cyl_l: 12, cyl_bar: 232, mod_m: 54 },
+      { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
+      { o2: 100, he: 0, cyl_l:  7, cyl_bar: 210, mod_m:  6 },
+    ] },
 ]
 
 function makeGasLibrary(): GasEntry[] {
   let id = 1
   return DEFAULT_GASES.map(g => ({ ...g, id: id++ }))
 }
-function makeBailoutLibrary(): BailoutEntry[] {
+function makeCcrBailoutLibrary(): BailoutEntry[] {
   let id = 1
-  return DEFAULT_BAILOUT.map(g => ({ ...g, id: id++ }))
+  return DEFAULT_CCR_BAILOUT.map(g => ({ ...g, id: id++ }))
+}
+function makeOcBailoutLibrary(): BailoutEntry[] {
+  let id = 1
+  return DEFAULT_OC_BAILOUT.map(g => ({ ...g, id: id++ }))
 }
 function makeExamplePlans(): SavedPlan[] {
   let id = 1
@@ -116,11 +147,21 @@ export default function DivePlanner() {
   const [gasNextId, setGasNextId] = useState(() =>
     load<{ gases: GasEntry[]; nextId: number } | null>('planner_gases', null)?.nextId ?? DEFAULT_GASES.length + 1
   )
-  const [bailoutLib, setBailoutLib] = useState<BailoutEntry[]>(() =>
-    load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_gases', null)?.gases ?? makeBailoutLibrary()
+  const [ccrBailoutLib, setCcrBailoutLib] = useState<BailoutEntry[]>(() => {
+    const saved = load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_ccr', null)
+    if (saved) return saved.gases
+    return load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_gases', null)?.gases ?? makeCcrBailoutLibrary()
+  })
+  const [ccrBailoutNextId, setCcrBailoutNextId] = useState(() => {
+    const saved = load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_ccr', null)
+    if (saved) return saved.nextId
+    return load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_gases', null)?.nextId ?? DEFAULT_CCR_BAILOUT.length + 1
+  })
+  const [ocBailoutLib, setOcBailoutLib] = useState<BailoutEntry[]>(() =>
+    load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_oc', null)?.gases ?? makeOcBailoutLibrary()
   )
-  const [bailoutNextId, setBailoutNextId] = useState(() =>
-    load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_gases', null)?.nextId ?? DEFAULT_BAILOUT.length + 1
+  const [ocBailoutNextId, setOcBailoutNextId] = useState(() =>
+    load<{ gases: BailoutEntry[]; nextId: number } | null>('planner_bailout_oc', null)?.nextId ?? DEFAULT_OC_BAILOUT.length + 1
   )
   const [settings, setSettings] = useState<PlannerSettings>(() =>
     load<PlannerSettings>('planner_settings', DEFAULT_SETTINGS)
@@ -152,15 +193,24 @@ export default function DivePlanner() {
   const [usingSharedSettings, setUsingSharedSettings] = useState(false)
   const [copiedId, setCopiedId] = useState<number | null>(null)
 
+  // Mode-aware bailout aliases — always point to the active mode's library
+  const bailoutLib      = diveMode === 'ccr' ? ccrBailoutLib      : ocBailoutLib
+  const setBailoutLib   = diveMode === 'ccr' ? setCcrBailoutLib   : setOcBailoutLib
+  const bailoutNextId   = diveMode === 'ccr' ? ccrBailoutNextId   : ocBailoutNextId
+  const setBailoutNextId = diveMode === 'ccr' ? setCcrBailoutNextId : setOcBailoutNextId
+
   // Persist gas library
   useEffect(() => {
     save('planner_gases', { gases: gasLib, nextId: gasNextId })
   }, [gasLib, gasNextId])
 
-  // Persist bailout library
+  // Persist CCR and OC bailout libraries separately
   useEffect(() => {
-    save('planner_bailout_gases', { gases: bailoutLib, nextId: bailoutNextId })
-  }, [bailoutLib, bailoutNextId])
+    save('planner_bailout_ccr', { gases: ccrBailoutLib, nextId: ccrBailoutNextId })
+  }, [ccrBailoutLib, ccrBailoutNextId])
+  useEffect(() => {
+    save('planner_bailout_oc', { gases: ocBailoutLib, nextId: ocBailoutNextId })
+  }, [ocBailoutLib, ocBailoutNextId])
 
   // Persist settings
   useEffect(() => {
@@ -400,13 +450,18 @@ export default function DivePlanner() {
   // ── Saved plans ──────────────────────────────────────────────────────────────
 
   function openSavePlan() {
-    if (!activeGas) { alert('Select a diluent gas first.'); return }
-    const name = `${gasName(activeGas.o2, activeGas.he)} · ${depth}m / ${bt}min`
+    if (diveMode === 'ccr' && !activeGas) { alert('Select a diluent gas first.'); return }
+    if (diveMode === 'oc' && activeBailout.length === 0) { alert('Select at least one deco gas first.'); return }
+    const name = diveMode === 'oc'
+      ? `OC · ${depth}m / ${bt}min`
+      : `${gasName(activeGas!.o2, activeGas!.he)} · ${depth}m / ${bt}min`
     setSavePlanModal({
       open: true, name,
       pending: {
-        gas: { o2: activeGas.o2, he: activeGas.he, setpoint: activeGas.setpoint },
+        mode: diveMode,
+        gas: diveMode === 'ccr' ? { o2: activeGas!.o2, he: activeGas!.he, setpoint: activeGas!.setpoint } : undefined,
         depth_m: depth, bottom_time_min: bt,
+        bailout_gases: activeBailout.map(({ o2, he, cyl_l, cyl_bar, mod_m }) => ({ o2, he, cyl_l, cyl_bar, mod_m })),
       },
     })
   }
@@ -428,22 +483,53 @@ export default function DivePlanner() {
   function loadPlan(id: number) {
     const plan = savedPlans.find(p => p.id === id)
     if (!plan) return
+    const planMode = plan.mode ?? 'ccr'
+    setDiveMode(planMode)
     setDepth(plan.depth_m)
     setBt(plan.bottom_time_min)
-    const g = plan.gas
-    const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
-    if (match) {
-      selectGas(match.id)
-    } else {
-      const id = gasNextId
-      setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id, ...g, active: true }])
-      setGasNextId(id + 1)
+    setResult(null)
+
+    if (planMode === 'ccr' && plan.gas) {
+      const g = plan.gas
+      const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
+      if (match) {
+        selectGas(match.id)
+      } else {
+        const newId = gasNextId
+        setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id: newId, ...g, active: true }])
+        setGasNextId(newId + 1)
+      }
     }
+
     if (plan.bailout_gases) {
       const wanted = plan.bailout_gases
-      setBailoutLib(prev => prev.map(b => ({
-        ...b, active: wanted.some(w => w.o2 === b.o2 && w.he === b.he),
-      })))
+      const targetLib    = planMode === 'ccr' ? ccrBailoutLib    : ocBailoutLib
+      const setLib       = planMode === 'ccr' ? setCcrBailoutLib : setOcBailoutLib
+      const setNextId    = planMode === 'ccr' ? setCcrBailoutNextId : setOcBailoutNextId
+      const currentNextId = planMode === 'ccr' ? ccrBailoutNextId : ocBailoutNextId
+
+      let nextId = currentNextId
+      const toAdd: BailoutEntry[] = []
+      for (const w of wanted) {
+        if (!targetLib.some(b => b.o2 === w.o2 && b.he === w.he)) {
+          toAdd.push({
+            id: nextId++,
+            o2: w.o2, he: w.he,
+            mod_m: w.mod_m ?? bailoutAutoMod(w.o2),
+            cyl_l: w.cyl_l ?? 11, cyl_bar: w.cyl_bar ?? 210,
+            ppo2_limit: 1.4, active: true,
+          })
+        }
+      }
+      setLib(prev => [
+        ...prev.map(b => {
+          const w = wanted.find(ww => ww.o2 === b.o2 && ww.he === b.he)
+          if (!w) return { ...b, active: false }
+          return { ...b, active: true, ...(w.cyl_l != null ? { cyl_l: w.cyl_l!, cyl_bar: w.cyl_bar ?? b.cyl_bar } : {}) }
+        }),
+        ...toAdd,
+      ])
+      if (toAdd.length > 0) setNextId(nextId)
     }
     setSavedPlansOpen(false)
   }
@@ -451,8 +537,10 @@ export default function DivePlanner() {
   function resetToDefaults() {
     setGasLib(makeGasLibrary())
     setGasNextId(DEFAULT_GASES.length + 1)
-    setBailoutLib(makeBailoutLibrary())
-    setBailoutNextId(DEFAULT_BAILOUT.length + 1)
+    setCcrBailoutLib(makeCcrBailoutLibrary())
+    setCcrBailoutNextId(DEFAULT_CCR_BAILOUT.length + 1)
+    setOcBailoutLib(makeOcBailoutLibrary())
+    setOcBailoutNextId(DEFAULT_OC_BAILOUT.length + 1)
     setSettings(DEFAULT_SETTINGS)
     setSavedPlans(makeExamplePlans())
     setPlanNextId(EXAMPLE_PLANS.length + 1)
@@ -477,8 +565,8 @@ export default function DivePlanner() {
       dr: settings.descRate, ard: settings.ascRateDeep, ars: settings.ascRateShallow,
       ls: settings.lastStopM, cns: settings.cnsWarnPct,
       sacb: settings.sacBottom, sacd: settings.sacDeco, res: settings.reserveBar,
-      mo: diveMode,
-      g: { o2: plan.gas.o2, he: plan.gas.he, sp: plan.gas.setpoint },
+      mo: plan.mode ?? diveMode,
+      g: plan.gas ? { o2: plan.gas.o2, he: plan.gas.he, sp: plan.gas.setpoint } : { o2: 21, he: 0, sp: 1.3 },
       b: activeBailout.map(g => ({
         o2: g.o2, he: g.he, m: g.mod_m,
         l: g.cyl_l, bar: g.cyl_bar, pp: g.ppo2_limit ?? 1.4,
@@ -489,14 +577,17 @@ export default function DivePlanner() {
   function downloadPlan(id: number) {
     const plan = savedPlans.find(p => p.id === id)
     if (!plan) return
+    const planMode = plan.mode ?? 'ccr'
+    const planLib = planMode === 'ccr' ? ccrBailoutLib : ocBailoutLib
     const scenario = {
       version: 1,
       name: plan.name,
+      mode: planMode,
       exported_at: new Date().toISOString(),
       depth_m: plan.depth_m,
       bottom_time_min: plan.bottom_time_min,
-      diluent: plan.gas,
-      bailout_gases: bailoutLib.filter(g => g.active).map(({ o2, he, mod_m, ppo2_limit, cyl_l, cyl_bar }) => ({ o2, he, mod_m, ppo2_limit: ppo2_limit ?? 1.4, cyl_l, cyl_bar })),
+      ...(plan.gas ? { diluent: plan.gas } : {}),
+      bailout_gases: planLib.filter(g => g.active).map(({ o2, he, mod_m, ppo2_limit, cyl_l, cyl_bar }) => ({ o2, he, mod_m, ppo2_limit: ppo2_limit ?? 1.4, cyl_l, cyl_bar })),
       settings,
     }
     const blob = new Blob([JSON.stringify(scenario, null, 2)], { type: 'application/json' })
@@ -513,33 +604,40 @@ export default function DivePlanner() {
     reader.onload = e => {
       try {
         const s = JSON.parse(e.target?.result as string)
-        if (!s.version || !s.depth_m || !s.diluent) throw new Error('Invalid scenario file')
+        if (!s.version || !s.depth_m) throw new Error('Invalid scenario file')
+        const importMode: 'ccr' | 'oc' = s.mode === 'oc' ? 'oc' : 'ccr'
+        setDiveMode(importMode)
         setDepth(s.depth_m)
         setBt(s.bottom_time_min)
         if (s.settings) setSettings(s.settings)
-        const g = s.diluent
-        const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
-        if (match) {
-          selectGas(match.id)
-        } else {
-          const newId = gasNextId
-          setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id: newId, ...g, active: true }])
-          setGasNextId(newId + 1)
+        if (importMode === 'ccr') {
+          if (!s.diluent) throw new Error('Invalid scenario file')
+          const g = s.diluent
+          const match = gasLib.find(x => x.o2 === g.o2 && x.he === g.he && x.setpoint === g.setpoint)
+          if (match) {
+            selectGas(match.id)
+          } else {
+            const newId = gasNextId
+            setGasLib(prev => [...prev.map(x => ({ ...x, active: false })), { id: newId, ...g, active: true }])
+            setGasNextId(newId + 1)
+          }
         }
         if (Array.isArray(s.bailout_gases) && s.bailout_gases.length > 0) {
-          let nextId = bailoutNextId
+          const setLib     = importMode === 'ccr' ? setCcrBailoutLib : setOcBailoutLib
+          const setNextId  = importMode === 'ccr' ? setCcrBailoutNextId : setOcBailoutNextId
+          let nextId = importMode === 'ccr' ? ccrBailoutNextId : ocBailoutNextId
           const imported: BailoutEntry[] = s.bailout_gases.map((bg: { o2: number; he: number; mod_m?: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => {
             const ppo2Lim = bg.ppo2_limit ?? 1.4
             return {
-            id: nextId++,
-            o2: bg.o2, he: bg.he ?? 0, mod_m: calcMod(bg.o2, bg.he ?? 0, ppo2Lim),
-            ppo2_limit: ppo2Lim,
-            cyl_l: bg.cyl_l ?? 0, cyl_bar: bg.cyl_bar ?? 0,
-            active: true,
-          }
+              id: nextId++,
+              o2: bg.o2, he: bg.he ?? 0, mod_m: bg.mod_m ?? calcMod(bg.o2, bg.he ?? 0, ppo2Lim),
+              ppo2_limit: ppo2Lim,
+              cyl_l: bg.cyl_l ?? 0, cyl_bar: bg.cyl_bar ?? 0,
+              active: true,
+            }
           })
-          setBailoutLib(imported)
-          setBailoutNextId(nextId)
+          setLib(imported)
+          setNextId(nextId)
         }
         setSavedPlansOpen(false)
       } catch {
@@ -852,10 +950,18 @@ export default function DivePlanner() {
             ? <p className="text-muted" style={{ fontSize: '0.82rem' }}>No saved plans yet.</p>
             : [...savedPlans].reverse().map(plan => (
               <div key={plan.id} className="plan-card">
-                <div className="plan-card-name">{plan.name}</div>
+                <div className="plan-card-name">
+                  {plan.name}
+                  <span className={`badge ms-2 ${(plan.mode ?? 'ccr') === 'oc' ? 'bg-success' : 'bg-primary'}`}
+                    style={{ fontSize: '0.6rem', verticalAlign: 'middle' }}>
+                    {(plan.mode ?? 'CCR').toUpperCase()}
+                  </span>
+                </div>
                 <div className="plan-card-meta">
-                  {gasName(plan.gas.o2, plan.gas.he)} · SP {plan.gas.setpoint} · {plan.depth_m} m
-                  · {plan.bottom_time_min} min
+                  {(plan.mode ?? 'ccr') === 'oc'
+                    ? `OC · ${plan.depth_m} m · ${plan.bottom_time_min} min`
+                    : `${gasName(plan.gas?.o2 ?? 21, plan.gas?.he ?? 0)} · SP ${plan.gas?.setpoint ?? 1.3} · ${plan.depth_m} m · ${plan.bottom_time_min} min`
+                  }
                 </div>
                 <div className="plan-card-actions">
                   <button className="btn btn-sm btn-apply flex-grow-1" onClick={() => loadPlan(plan.id)}>Load</button>

@@ -2,9 +2,9 @@ import math
 import pytest
 from gas_blender import gas_density
 from planner.gas import CCRGas, OpenCircuitGas
-from planner.dive import plan_ccr_dive, plan_oc_bailout, DiveProfile, BailoutProfile
+from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive, DiveProfile, BailoutProfile
 from planner.buhlmann import WATER_VAPOUR_BAR, SURFACE_BAR
-from DivePlanner import _compute_gas_consumption, _max_bottom_time_within_gas_supply
+from DivePlanner import _compute_gas_consumption, _max_bottom_time_within_gas_supply, _max_bottom_time_within_gas_supply_oc
 
 
 class TestPlannerStructure:
@@ -435,3 +435,116 @@ class TestGasSupplyShortening:
         )
         # With less gas, we either shorten more OR both fit — but reserve must be ≤ full
         assert (bt_reserve is None or bt_full is None) or bt_reserve <= bt_full
+
+
+class TestPlanOcDive:
+
+    def test_returns_dive_profile(self):
+        gases = [OpenCircuitGas(21, 0, 40)]
+        profile = plan_oc_dive(gases, 30, 20, 0.6, 0.8)
+        assert isinstance(profile, DiveProfile)
+
+    def test_shallow_oc_no_deco(self):
+        gases = [OpenCircuitGas(21, 0, 40)]
+        profile = plan_oc_dive(gases, 15, 10, 0.6, 0.8)
+        assert profile.stops == []
+
+    def test_deep_oc_has_stops(self):
+        gases = [OpenCircuitGas(21, 25, 60)]
+        profile = plan_oc_dive(gases, 40, 25, 0.6, 0.8)
+        assert len(profile.stops) > 0
+
+    def test_stops_are_multiples_of_3m(self):
+        gases = [OpenCircuitGas(21, 25, 60)]
+        profile = plan_oc_dive(gases, 40, 25, 0.6, 0.8)
+        for stop in profile.stops:
+            assert stop.depth_m % 3 == 0
+
+    def test_gas_switches_populated_with_multiple_gases(self):
+        gases = [
+            OpenCircuitGas(18, 45, 90),   # back gas MOD ~90m
+            OpenCircuitGas(50, 0, 22),    # deco gas MOD 22m
+            OpenCircuitGas(100, 0, 6),    # O2 MOD 6m
+        ]
+        profile = plan_oc_dive(gases, 60, 25, 0.5, 0.8)
+        assert len(profile.gas_switches) >= 1
+        switch_depths = [s['depth_m'] for s in profile.gas_switches]
+        assert any(d <= 22 for d in switch_depths)
+
+    def test_gas_switches_empty_for_single_gas(self):
+        gases = [OpenCircuitGas(21, 0, 40)]
+        profile = plan_oc_dive(gases, 15, 10, 0.6, 0.8)
+        assert profile.gas_switches == []
+
+    def test_liberal_gf_less_deco_than_conservative(self):
+        gases = [OpenCircuitGas(21, 25, 60)]
+        conservative = plan_oc_dive(gases, 40, 25, 0.3, 0.7)
+        liberal = plan_oc_dive(gases, 40, 25, 0.85, 0.95)
+        assert conservative.total_time_min > liberal.total_time_min
+
+    def test_back_gas_selected_by_mod(self):
+        # Gas with higher MOD should be used at depth; verify TTS is plausible
+        back_gas  = OpenCircuitGas(18, 45, 90)
+        deco_gas  = OpenCircuitGas(50, 0, 22)
+        profile = plan_oc_dive([back_gas, deco_gas], 60, 25, 0.5, 0.8)
+        assert profile.total_time_min > 25  # some deco expected
+
+    def test_oc_vs_ccr_similar_inert_loading(self):
+        # OC air at 30m should produce comparable inert loading to CCR on air diluent
+        # (CCR has higher inert load at depth because setpoint "takes up" less O2 fraction,
+        # but at shallow depths with low setpoint the difference is small)
+        oc_gases = [OpenCircuitGas(21, 0, 40)]
+        oc_profile = plan_oc_dive(oc_gases, 30, 20, 0.6, 0.8)
+        ccr_gas = CCRGas(21, 0, 1.0)
+        ccr_profile = plan_ccr_dive(ccr_gas, 30, 20, 0.6, 0.8)
+        # Both should need some deco or no deco — just check totals are in same ballpark
+        assert abs(oc_profile.total_time_min - ccr_profile.total_time_min) < 15
+
+
+class TestOcGasSupplyShortening:
+
+    def _gases(self):
+        return [
+            OpenCircuitGas(18, 45, 90),
+            OpenCircuitGas(50, 0, 22),
+            OpenCircuitGas(100, 0, 6),
+        ]
+
+    def test_no_shortening_when_unlimited(self):
+        oc_gases = self._gases()
+        sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
+        bt, shortened = _max_bottom_time_within_gas_supply_oc(
+            depth_m=60, requested_bt=25, desc_rate_mpm=20,
+            oc_gases=oc_gases, sorted_gases=sorted_gases,
+            available_L=[math.inf] * 3,
+            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
+            last_stop_m=3, sac_bottom=20, sac_deco=15,
+        )
+        assert not shortened
+        assert bt == pytest.approx(25, abs=0.1)
+
+    def test_shortening_with_small_back_gas(self):
+        oc_gases = self._gases()
+        sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
+        # Very tight back gas supply to force shortening
+        bt, shortened = _max_bottom_time_within_gas_supply_oc(
+            depth_m=60, requested_bt=25, desc_rate_mpm=20,
+            oc_gases=oc_gases, sorted_gases=sorted_gases,
+            available_L=[200, math.inf, math.inf],  # only 200L back gas
+            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
+            last_stop_m=3, sac_bottom=20, sac_deco=15,
+        )
+        assert (bt is None) or (shortened and bt < 25)
+
+    def test_returns_none_with_zero_gas(self):
+        oc_gases = self._gases()
+        sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
+        bt, shortened = _max_bottom_time_within_gas_supply_oc(
+            depth_m=60, requested_bt=25, desc_rate_mpm=20,
+            oc_gases=oc_gases, sorted_gases=sorted_gases,
+            available_L=[0, 0, 0],
+            gf_low=0.5, gf_high=0.8, asc_rate_deep=9, asc_rate_shallow=3,
+            last_stop_m=3, sac_bottom=20, sac_deco=15,
+        )
+        assert bt is None
+        assert shortened

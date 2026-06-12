@@ -1,5 +1,5 @@
 import math
-from planner.dive import plan_oc_bailout
+from planner.dive import plan_oc_bailout, plan_oc_dive
 
 # NOAA single-dive CNS table: (ppO2, % per minute)
 _CNS_TABLE = [
@@ -126,6 +126,52 @@ def _max_bottom_time_within_gas_supply(
                 last_stop_m=last_stop_m,
             )
             consumed = _compute_gas_consumption(b, sorted_gases, sac_bottom, sac_deco)
+            return all(consumed[i] <= available_L[i] for i in range(len(sorted_gases)))
+        except Exception:
+            return False
+
+    if fits(requested_bt):
+        return requested_bt, False
+
+    lo = depth_m / desc_rate_mpm + 1.0
+
+    if not fits(lo):
+        return None, True
+
+    hi = requested_bt
+    for _ in range(12):
+        mid = (lo + hi) / 2.0
+        if fits(mid):
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 0.25:
+            break
+
+    return math.floor(lo), True
+
+
+def _max_bottom_time_within_gas_supply_oc(
+    depth_m, requested_bt, desc_rate_mpm,
+    oc_gases, sorted_gases, available_L,
+    gf_low, gf_high, asc_rate_deep, asc_rate_shallow, last_stop_m,
+    sac_bottom, sac_deco,
+):
+    """Binary-search for max bottom_time_min on a full OC dive.
+
+    Same contract as _max_bottom_time_within_gas_supply but plans the entire dive
+    with plan_oc_dive (bottom phase burns OC gas, not CCR diluent).
+    """
+    def fits(bt):
+        try:
+            profile = plan_oc_dive(
+                oc_gases=oc_gases, bottom_depth_m=depth_m, bottom_time_min=bt,
+                gf_low=gf_low, gf_high=gf_high,
+                desc_rate_mpm=desc_rate_mpm,
+                asc_rate_deep_mpm=asc_rate_deep, asc_rate_shallow_mpm=asc_rate_shallow,
+                last_stop_m=last_stop_m,
+            )
+            consumed = _compute_gas_consumption(profile, sorted_gases, sac_bottom, sac_deco)
             return all(consumed[i] <= available_L[i] for i in range(len(sorted_gases)))
         except Exception:
             return False

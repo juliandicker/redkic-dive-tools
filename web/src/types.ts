@@ -47,6 +47,8 @@ export interface DivePlannerResponse {
   profile_points: ProfilePoint[]
   tissue_saturations: number[]
   density_analysis: DensityAnalysis
+  gas_switches: GasSwitch[]
+  gas_supply: GasSupplyEntry[] | null
   bailout: BailoutPlan | null
   warnings: Warning[]
 }
@@ -70,7 +72,8 @@ export interface PlannerSettings {
 }
 export interface SavedPlan {
   id: number; name: string; created_at: string
-  gas: { o2: number; he: number; setpoint: number }
+  mode?: 'ccr' | 'oc'
+  gas?: { o2: number; he: number; setpoint: number }
   depth_m: number; bottom_time_min: number
-  bailout_gases?: { o2: number; he: number }[]
+  bailout_gases?: { o2: number; he: number; cyl_l?: number; cyl_bar?: number; mod_m?: number }[]
 }
