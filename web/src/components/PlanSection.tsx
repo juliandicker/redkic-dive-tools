@@ -83,6 +83,20 @@ export default function PlanSection({
     if (nearest?.sats) setHoveredSats(nearest.sats)
   }, [profilePoints])
 
+  const handleProfileTouch = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const chart = profileRef.current
+    if (!chart || !profilePoints.length) return
+    const touch = e.touches[0]
+    if (!touch) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = touch.clientX - rect.left
+    const xVal = chart.scales.x.getValueForPixel(x) ?? 0
+    const nearest = profilePoints.reduce((prev, curr) =>
+      Math.abs(curr.t - xVal) < Math.abs(prev.t - xVal) ? curr : prev
+    )
+    if (nearest?.sats) setHoveredSats(nearest.sats)
+  }, [profilePoints])
+
   const resetHover = useCallback(() => setHoveredSats(null), [])
 
   const toggleFullscreen = () => {
@@ -432,6 +446,8 @@ export default function PlanSection({
               style={{ height: 260, position: 'relative' }}
               onMouseMove={handleProfileHover}
               onMouseLeave={resetHover}
+              onTouchMove={handleProfileTouch}
+              onTouchEnd={resetHover}
             >
               <Line ref={profileRef} data={profileData} options={profileOptions} />
             </div>

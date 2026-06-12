@@ -139,18 +139,18 @@ export default function GasBlender() {
 
       <div className="container pb-5">
         <div className="row g-3 mb-3">
-          <div className="col-4">
+          <div className="col-12 col-sm-4">
             <GasCard label="Start Gas" barField="startBar" o2Field="startO2" heField="startHe"
               bar={inputs.startBar} o2={inputs.startO2} he={inputs.startHe} />
           </div>
-          <div className="col-4">
+          <div className="col-12 col-sm-4">
             <GasCard label="Target Gas" barField="finishBar" o2Field="finishO2" heField="finishHe"
               bar={inputs.finishBar} o2={inputs.finishO2} he={inputs.finishHe}
               presets={[[21,0],[21,35],[18,45],[15,55],[12,60],[10,70],[21,30],[18,35]]}
               onPreset={applyPreset}
               onBestMix={() => setBmOpen(true)} />
           </div>
-          <div className="col-4">
+          <div className="col-12 col-sm-4">
             <GasCard label="Helium Bank" barField="heliumBar" o2Field="heliumO2" heField="heliumHe"
               bar={inputs.heliumBar} o2={inputs.heliumO2} he={inputs.heliumHe} />
           </div>
