@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 
 export default function About() {
@@ -109,12 +110,15 @@ export default function About() {
                   The result is a three-step partial-pressure sequence: bleed to the base pressure → add
                   helium → add oxygen → top up with air. Follow the steps in order on the whip.
                 </p>
-                <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
+                <p style={{ fontSize: '0.85rem' }}>
                   The <strong>analysis panel</strong> shows MOD at ppO₂ 1.2, 1.4, and 1.6; gas density
                   at depth with the 5.2&nbsp;g/L limit highlighted; and equivalent narcotic depth. The{' '}
                   <strong>best-mix calculator</strong> works in reverse — give it a target depth and ppO₂
                   limit and it suggests the optimum oxygen and helium percentages.
                 </p>
+                <Link to="/" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
+                  Open Gas Blender <i className="bi bi-arrow-right" />
+                </Link>
               </div>
             </div>
 
@@ -178,12 +182,15 @@ export default function About() {
                 </p>
 
                 <div className="card-section-title">CNS and OTU</div>
-                <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
+                <p style={{ fontSize: '0.85rem' }}>
                   CNS% and OTU are tracked cumulatively across the whole dive. CNS tracks short-term
                   central nervous system oxygen toxicity; a warning fires at the threshold set in Settings
                   (default 75%). OTU tracks cumulative pulmonary exposure, useful when planning repetitive
                   dives over a day or a trip.
                 </p>
+                <Link to="/planner" className="btn btn-sm" style={{ background: 'var(--ocean)', color: '#fff' }}>
+                  Open Dive Planner <i className="bi bi-arrow-right" />
+                </Link>
               </div>
             </div>
 
