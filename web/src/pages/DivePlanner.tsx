@@ -18,6 +18,7 @@ interface SharedPayload {
   dr: number; ard: number; ars: number
   ls: number; cns: number
   sacb: number; sacd: number; res: number
+  mo?: string  // 'ccr' | 'oc', absent = 'ccr'
   g: { o2: number; he: number; sp: number }
   b: { o2: number; he: number; m: number; l: number; bar: number; pp: number }[]
 }
@@ -131,6 +132,8 @@ export default function DivePlanner() {
     load<{ plans: SavedPlan[]; nextId: number } | null>('planner_saved_plans', null)?.nextId ?? EXAMPLE_PLANS.length + 1
   )
 
+  const [diveMode, setDiveMode] = useState<'ccr' | 'oc'>(() => load<'ccr' | 'oc'>('planner_mode', 'ccr'))
+
   const [depth, setDepth]   = useState(() => load<number>('planner_depth', 40))
   const [bt,    setBt]      = useState(() => load<number>('planner_bt', 25))
   const [loading, setLoading]   = useState(false)
@@ -169,6 +172,9 @@ export default function DivePlanner() {
     save('planner_saved_plans', { plans: savedPlans, nextId: planNextId })
   }, [savedPlans, planNextId])
 
+  // Persist dive mode
+  useEffect(() => { save('planner_mode', diveMode) }, [diveMode])
+
   // Persist depth and bottom time
   useEffect(() => { save('planner_depth', depth) }, [depth])
   useEffect(() => { save('planner_bt', bt) }, [bt])
@@ -181,6 +187,7 @@ export default function DivePlanner() {
     if (!p || typeof p.d !== 'number') return
     setDepth(p.d)
     setBt(p.bt)
+    if (p.mo === 'oc' || p.mo === 'ccr') setDiveMode(p.mo)
     setSharedPayload(p)
     setUsingSharedSettings(true)
     const g = p.g
@@ -237,14 +244,13 @@ export default function DivePlanner() {
   }, [result, btActual])
 
   async function calculate() {
-    if (!activeGas) return
+    if (diveMode === 'ccr' && !activeGas) return
+    if (diveMode === 'oc' && effectiveBailout.length === 0) return
     setError('')
     setLoading(true)
     try {
-      const data = await divePlan({
-        diluent_o2:           activeGas.o2,
-        diluent_he:           activeGas.he,
-        setpoint:             activeGas.setpoint,
+      const basePayload = {
+        mode:                 diveMode,
         depth_m:              depth,
         bottom_time_min:      bt,
         gf_low:               effectiveSettings.gfLow,
@@ -259,12 +265,18 @@ export default function DivePlanner() {
           ppo2_limit: g.ppo2_limit ?? 1.4,
           cyl_l: g.cyl_l || null, cyl_bar: g.cyl_bar || null,
         })),
-        bailout_gf_low:       effectiveSettings.bailoutGfLow,
-        bailout_gf_high:      effectiveSettings.bailoutGfHigh,
         sac_bottom_lpm:       effectiveSettings.sacBottom,
         sac_deco_lpm:         effectiveSettings.sacDeco,
         reserve_bar:          effectiveSettings.reserveBar,
-      })
+      }
+      const data = await divePlan(diveMode === 'ccr' ? {
+        ...basePayload,
+        diluent_o2:           activeGas!.o2,
+        diluent_he:           activeGas!.he,
+        setpoint:             activeGas!.setpoint,
+        bailout_gf_low:       effectiveSettings.bailoutGfLow,
+        bailout_gf_high:      effectiveSettings.bailoutGfHigh,
+      } : basePayload)
       setResult(data)
     } catch (e) {
       setError((e as Error).message)
@@ -465,6 +477,7 @@ export default function DivePlanner() {
       dr: settings.descRate, ard: settings.ascRateDeep, ars: settings.ascRateShallow,
       ls: settings.lastStopM, cns: settings.cnsWarnPct,
       sacb: settings.sacBottom, sacd: settings.sacDeco, res: settings.reserveBar,
+      mo: diveMode,
       g: { o2: plan.gas.o2, he: plan.gas.he, sp: plan.gas.setpoint },
       b: activeBailout.map(g => ({
         o2: g.o2, he: g.he, m: g.mod_m,
@@ -554,7 +567,7 @@ export default function DivePlanner() {
     <div>
       <Header
         title="Dive Planner"
-        tagline="Bühlmann ZHL-16C decompression planner — CCR trimix"
+        tagline={`Bühlmann ZHL-16C decompression planner — ${diveMode === 'oc' ? 'OC' : 'CCR'} trimix`}
         extraButtons={
           <>
             {result && (
@@ -573,40 +586,45 @@ export default function DivePlanner() {
       />
 
       <div className="container pb-5">
-        {/* Top row: 3 equal columns */}
+        {/* Top row */}
         <div className="row g-3 mb-4 no-print">
-          {/* Diluent gas library */}
-          <div className="col-md-4">
-            <div className="card h-100">
-              <div className="card-body">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="card-section-title mb-0">Diluent Gases</div>
-                  <button className="btn-add-gas" onClick={() => openGasModal(false)} title="Add gas">
-                    <i className="bi bi-plus" />
-                  </button>
-                </div>
-                <div className="gas-library">
-                  {sortedGasLib.map(gas => (
-                    <GasCard
-                      key={gas.id} gas={gas} isBailout={false}
-                      reserveBar={settings.reserveBar}
-                      onSelect={() => selectGas(gas.id)}
-                      onEdit={() => openGasModal(false, gas.id)}
-                      onDelete={() => deleteGas(gas.id)}
-                    />
-                  ))}
+          {/* Diluent gas library — CCR only */}
+          {diveMode === 'ccr' && (
+            <div className="col-md-4">
+              <div className="card h-100">
+                <div className="card-body">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div className="card-section-title mb-0">Diluent Gases</div>
+                    <button className="btn-add-gas" onClick={() => openGasModal(false)} title="Add gas">
+                      <i className="bi bi-plus" />
+                    </button>
+                  </div>
+                  <div className="gas-library">
+                    {sortedGasLib.map(gas => (
+                      <GasCard
+                        key={gas.id} gas={gas} isBailout={false}
+                        reserveBar={settings.reserveBar}
+                        onSelect={() => selectGas(gas.id)}
+                        onEdit={() => openGasModal(false, gas.id)}
+                        onDelete={() => deleteGas(gas.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Bailout library */}
-          <div className="col-md-4">
+          {/* Bailout / Deco gas library */}
+          <div className={diveMode === 'oc' ? 'col-md-8' : 'col-md-4'}>
             <div className="card h-100">
               <div className="card-body">
                 <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="card-section-title mb-0">Bailout Gases</div>
-                  <button className="btn-add-gas" onClick={() => openGasModal(true)} title="Add bailout gas">
+                  <div className="card-section-title mb-0">
+                    {diveMode === 'oc' ? 'Deco Gases' : 'Bailout Gases'}
+                  </div>
+                  <button className="btn-add-gas" onClick={() => openGasModal(true)}
+                    title={diveMode === 'oc' ? 'Add deco gas' : 'Add bailout gas'}>
                     <i className="bi bi-plus" />
                   </button>
                 </div>
@@ -631,6 +649,19 @@ export default function DivePlanner() {
               <div className="card-body">
                 <div className="card-section-title">Dive Parameters</div>
                 <div className="d-flex flex-column gap-2">
+                  {/* CCR / OC mode toggle */}
+                  <div className="btn-group btn-group-sm w-100" role="group">
+                    <button
+                      type="button"
+                      className={`btn ${diveMode === 'ccr' ? 'btn-apply' : 'btn-outline-secondary'}`}
+                      onClick={() => { setDiveMode('ccr'); setResult(null) }}
+                    >CCR</button>
+                    <button
+                      type="button"
+                      className={`btn ${diveMode === 'oc' ? 'btn-apply' : 'btn-outline-secondary'}`}
+                      onClick={() => { setDiveMode('oc'); setResult(null) }}
+                    >OC</button>
+                  </div>
                   <div className="input-group input-group-sm">
                     <span className="input-group-text">Depth</span>
                     <input type="number" className="form-control" min={5} max={300} value={depth}
@@ -645,10 +676,11 @@ export default function DivePlanner() {
                   </div>
                   {result && result.bottom_time_actual < bt && (
                     <div className="small text-warning-emphasis" style={{ fontSize: '0.78rem', marginTop: '-0.1rem' }}>
-                      <i className="bi bi-scissors me-1" />Shortened to {result.bottom_time_actual} min — insufficient bailout gas
+                      <i className="bi bi-scissors me-1" />Shortened to {result.bottom_time_actual} min — insufficient gas supply
                     </div>
                   )}
-                  <button className="btn btn-apply w-100 mt-1" onClick={calculate} disabled={!activeGas || loading}>
+                  <button className="btn btn-apply w-100 mt-1" onClick={calculate}
+                    disabled={(diveMode === 'ccr' ? !activeGas : effectiveBailout.length === 0) || loading}>
                     Calculate Decompression
                   </button>
                 </div>
@@ -658,8 +690,11 @@ export default function DivePlanner() {
         </div>
 
         {/* Results — full width below */}
-        {!activeGas && (
+        {diveMode === 'ccr' && !activeGas && (
           <div className="alert alert-info rounded-3">Select a diluent gas to plan a dive.</div>
+        )}
+        {diveMode === 'oc' && effectiveBailout.length === 0 && (
+          <div className="alert alert-info rounded-3">Select at least one deco gas to plan a dive.</div>
         )}
         {loading && (
           <div className="loading-spinner text-center py-3">
@@ -682,7 +717,7 @@ export default function DivePlanner() {
           </div>
         )}
 
-        {result && activeGas && (
+        {result && (diveMode === 'oc' || activeGas) && (
           <>
             {/* Print-only header */}
             <div className="print-only print-header mb-4">
@@ -694,8 +729,14 @@ export default function DivePlanner() {
                 </div>
               </div>
               <div style={{ fontSize: '0.82rem', marginTop: '0.4rem' }}>
-                <strong>Diluent:</strong> {gasName(activeGas.o2, activeGas.he)} &nbsp;·&nbsp;
-                <strong>Setpoint:</strong> {activeGas.setpoint} bar &nbsp;·&nbsp;
+                {diveMode === 'ccr' && activeGas ? (
+                  <>
+                    <strong>Diluent:</strong> {gasName(activeGas.o2, activeGas.he)} &nbsp;·&nbsp;
+                    <strong>Setpoint:</strong> {activeGas.setpoint} bar &nbsp;·&nbsp;
+                  </>
+                ) : (
+                  <><strong>OC Dive</strong> &nbsp;·&nbsp;</>
+                )}
                 <strong>Depth:</strong> {depth} m &nbsp;·&nbsp;
                 <strong>Bottom time:</strong> {btActual} min &nbsp;·&nbsp;
                 <strong>GF:</strong> {effectiveSettings.gfLow}/{effectiveSettings.gfHigh}
@@ -715,18 +756,19 @@ export default function DivePlanner() {
               otu={result.otu}
               profilePoints={result.profile_points}
               tissueSaturations={result.tissue_saturations}
-              gasSwitches={[]}
-              gasSupply={null}
+              gasSwitches={diveMode === 'oc' ? (result.gas_switches ?? []) : []}
+              gasSupply={diveMode === 'oc' ? (result.gas_supply ?? null) : null}
               warnings={result.warnings}
               gfHigh={effectiveSettings.gfHigh}
-              diluent={activeGas}
+              diluent={diveMode === 'oc' ? undefined : (activeGas ?? undefined)}
+              ocBackGas={diveMode === 'oc' && bailoutInitialGas ? { o2: bailoutInitialGas.o2, he: bailoutInitialGas.he } : undefined}
               depthM={depth}
               btMin={btActual}
               descRate={effectiveSettings.descRate}
               xAxisMax={sharedXMax}
             />
 
-            {result.bailout && (
+            {result.bailout && activeGas && (
               <div className="mt-4">
                 <PlanSection
                   title="Bailout Schedule"
@@ -771,7 +813,7 @@ export default function DivePlanner() {
           <p className="text-muted mb-3" style={{ fontSize: '0.82rem' }}>
             Settings are saved automatically.
           </p>
-          <SettingsBody settings={settings} setSettings={setSettings} />
+          <SettingsBody settings={settings} setSettings={setSettings} diveMode={diveMode} />
           <hr className="mt-4" />
           {!resetConfirm ? (
             <button className="btn btn-sm btn-outline-danger w-100" onClick={() => setResetConfirm(true)}>
@@ -844,7 +886,7 @@ export default function DivePlanner() {
       <Modal show={gasModal.open} onHide={() => setGasModal(prev => ({ ...prev, open: false }))} size="sm">
         <Modal.Header closeButton className="py-2">
           <Modal.Title style={{ fontSize: '0.9rem', fontWeight: 700 }}>
-            {gasModal.editId != null ? 'Edit' : 'Add'} {gasModal.isBailout ? 'Bailout' : 'Diluent'} Gas
+            {gasModal.editId != null ? 'Edit' : 'Add'} {gasModal.isBailout ? (diveMode === 'oc' ? 'Deco' : 'Bailout') : 'Diluent'} Gas
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="py-3">
@@ -1030,9 +1072,10 @@ function GasCard({ gas, isBailout, reserveBar, onSelect, onEdit, onDelete }: Gas
 interface SettingsBodyProps {
   settings: PlannerSettings
   setSettings: React.Dispatch<React.SetStateAction<PlannerSettings>>
+  diveMode: 'ccr' | 'oc'
 }
 
-function SettingsBody({ settings, setSettings }: SettingsBodyProps) {
+function SettingsBody({ settings, setSettings, diveMode }: SettingsBodyProps) {
   function set<K extends keyof PlannerSettings>(key: K, val: number) {
     setSettings(prev => ({ ...prev, [key]: val }))
   }
@@ -1040,7 +1083,7 @@ function SettingsBody({ settings, setSettings }: SettingsBodyProps) {
 
   return (
     <>
-      <div className="card-section-title mb-2">Gradient Factors (CCR)</div>
+      <div className="card-section-title mb-2">Gradient Factors</div>
       <div className="gf-row mb-2">
         <div className="input-group input-group-sm">
           <span className="input-group-text">GF Low</span>
@@ -1065,35 +1108,39 @@ function SettingsBody({ settings, setSettings }: SettingsBodyProps) {
         ))}
       </div>
 
-      <div className="card-section-title mb-2">Bailout Gradient Factors</div>
-      <div className="gf-row mb-2">
-        <div className="input-group input-group-sm">
-          <span className="input-group-text">GF Low</span>
-          <input type="number" className="form-control" min={1} max={100} value={settings.bailoutGfLow}
-            onChange={e => set('bailoutGfLow', num(e.target.value, 50))} />
-          <span className="input-group-text">%</span>
-        </div>
-        <div className="input-group input-group-sm">
-          <span className="input-group-text">GF High</span>
-          <input type="number" className="form-control" min={1} max={100} value={settings.bailoutGfHigh}
-            onChange={e => set('bailoutGfHigh', num(e.target.value, 80))} />
-          <span className="input-group-text">%</span>
-        </div>
-      </div>
-      <div className="d-flex align-items-center flex-wrap gap-1 mb-3">
-        {[[30,70,'Shearwater · 30/70'],[60,80,'BSAC Trimix · 60/80'],[85,95,'BSAC Air/Nitrox · 85/95']].map(([l,h,label]) => (
-          <button key={String(label)} className="btn btn-sm btn-outline-secondary"
-            style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
-            onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: Number(l), bailoutGfHigh: Number(h) }))}>
-            {label}
-          </button>
-        ))}
-        <button className="btn btn-sm btn-outline-secondary"
-          style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
-          onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: prev.gfLow, bailoutGfHigh: prev.gfHigh }))}>
-          Same as CCR
-        </button>
-      </div>
+      {diveMode === 'ccr' && (
+        <>
+          <div className="card-section-title mb-2">Bailout Gradient Factors</div>
+          <div className="gf-row mb-2">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text">GF Low</span>
+              <input type="number" className="form-control" min={1} max={100} value={settings.bailoutGfLow}
+                onChange={e => set('bailoutGfLow', num(e.target.value, 50))} />
+              <span className="input-group-text">%</span>
+            </div>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text">GF High</span>
+              <input type="number" className="form-control" min={1} max={100} value={settings.bailoutGfHigh}
+                onChange={e => set('bailoutGfHigh', num(e.target.value, 80))} />
+              <span className="input-group-text">%</span>
+            </div>
+          </div>
+          <div className="d-flex align-items-center flex-wrap gap-1 mb-3">
+            {[[30,70,'Shearwater · 30/70'],[60,80,'BSAC Trimix · 60/80'],[85,95,'BSAC Air/Nitrox · 85/95']].map(([l,h,label]) => (
+              <button key={String(label)} className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
+                onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: Number(l), bailoutGfHigh: Number(h) }))}>
+                {label}
+              </button>
+            ))}
+            <button className="btn btn-sm btn-outline-secondary"
+              style={{ fontSize: '0.68rem', padding: '0.1rem 0.35rem' }}
+              onClick={() => setSettings(prev => ({ ...prev, bailoutGfLow: prev.gfLow, bailoutGfHigh: prev.gfHigh }))}>
+              Same as main
+            </button>
+          </div>
+        </>
+      )}
 
       <div className="card-section-title mb-2">Ascent / Descent Rates</div>
       <div className="mb-2">

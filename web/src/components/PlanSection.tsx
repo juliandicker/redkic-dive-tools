@@ -44,6 +44,7 @@ interface PlanSectionProps {
   warnings: Warning[]
   gfHigh: number
   diluent?: { o2: number; he: number; setpoint: number }
+  ocBackGas?: { o2: number; he: number }
   depthM?: number
   btMin?: number
   descRate?: number
@@ -55,7 +56,7 @@ interface PlanSectionProps {
 export default function PlanSection({
   title, decoStops, totalTimeMin, ttsMin, cnsPct, otu,
   profilePoints, tissueSaturations, gasSwitches,
-  gasSupply, warnings, gfHigh, diluent, depthM, btMin, descRate,
+  gasSupply, warnings, gfHigh, diluent, ocBackGas, depthM, btMin, descRate,
   isBailout, bailoutInitialGas, xAxisMax,
 }: PlanSectionProps) {
   const [hoveredSats, setHoveredSats] = useState<number[] | null>(null)
@@ -228,9 +229,10 @@ export default function PlanSection({
   const dRate     = descRate ?? 20
   const descTime  = Math.round(depth / dRate)
   const flatBt    = Math.round(bt - descTime)
-  const sp        = gas?.setpoint ?? 1.3
-  const gO2       = gas?.o2 ?? 21
-  const gHe       = gas?.he ?? 0
+  // OC mode: use back gas composition; ppO2 varies with depth (show bottom worst-case)
+  const gO2       = ocBackGas?.o2 ?? gas?.o2 ?? 21
+  const gHe       = ocBackGas?.he ?? gas?.he ?? 0
+  const sp        = ocBackGas ? (gO2 / 100) * (depth / 10 + 1) : (gas?.setpoint ?? 1.3)
 
   // For bailout stops: runtime reported by API is from OC bailout point, offset by bt for absolute runtime
   const rtOffset = isBailout ? bt : 0
@@ -310,7 +312,7 @@ export default function PlanSection({
                         .filter(sw => sw.depth_m > firstStopDepth)
                         .sort((a, b) => b.depth_m - a.depth_m)
                       return noStopSwitches.map((sw, i) => {
-                        const gasAtSwitch = resolveGasAtStop(sw.depth_m, gasSwitches, bailoutInitialGas ?? gas)
+                        const gasAtSwitch = resolveGasAtStop(sw.depth_m, gasSwitches, ocBackGas ?? bailoutInitialGas ?? gas)
                         const dens = (surfaceDensity(gasAtSwitch.o2, gasAtSwitch.he) * (sw.depth_m / 10 + 1)).toFixed(2)
                         const densNum = parseFloat(dens)
                         const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
@@ -337,11 +339,11 @@ export default function PlanSection({
                         sw => sw.depth_m >= stop.depth_m && sw.depth_m < prevDepth
                           && sw.depth_m <= firstStopDepth
                       )
-                      const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, bailoutInitialGas ?? gas)
+                      const gasAtStop = resolveGasAtStop(stop.depth_m, gasSwitches, ocBackGas ?? bailoutInitialGas ?? gas)
                       const dens = (surfaceDensity(gasAtStop.o2, gasAtStop.he) * (stop.depth_m / 10 + 1)).toFixed(2)
                       const densNum = parseFloat(dens)
                       const densColor = densNum > 6.3 ? '#dc3545' : densNum > 5.2 ? '#e07000' : ''
-                      const ppO2 = isBailout
+                      const ppO2 = (isBailout || !!ocBackGas)
                         ? ((gasAtStop.o2 / 100) * (stop.depth_m / 10 + 1)).toFixed(2)
                         : sp.toFixed(2)
                       return (
