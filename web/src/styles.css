@@ -296,12 +296,12 @@ body::before {
 }
 .btn-gas-action:hover { color: var(--navy); }
 .btn-add-gas {
-    background: none; border: 1.5px solid var(--border); color: var(--ocean);
-    border-radius: 50%; width: 22px; height: 22px; display: inline-flex;
-    align-items: center; justify-content: center; font-size: 0.85rem;
+    background: var(--ocean); border: 1.5px solid var(--ocean); color: #fff;
+    border-radius: 50%; width: 24px; height: 24px; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 0.9rem;
     line-height: 1; cursor: pointer; transition: all 0.15s; padding: 0; flex-shrink: 0;
 }
-.btn-add-gas:hover { background: var(--ocean); color: #fff; border-color: var(--ocean); }
+.btn-add-gas:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
 
 /* ── Saved plans ─── */
 .plan-card { background: rgba(255,255,255,0.8); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.75rem; margin-bottom: 0.5rem; }
