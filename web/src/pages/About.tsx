@@ -31,9 +31,8 @@ export default function About() {
                       Gas blending from non-pure helium
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      Most blending calculators assume your helium source is 100% He. Enter the actual
-                      composition and the fill-sequence pressures are calculated correctly — useful when
-                      topping from a cylinder that isn't certified pure, or one someone else part-filled.
+                      Most calculators assume 100% He. Enter the actual composition of your source
+                      and the fill sequence is calculated correctly.
                     </p>
                   </div>
                 </div>
@@ -47,9 +46,9 @@ export default function About() {
                       Gas density front and centre
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      Density is baked into every calculation: warnings at 5.2&nbsp;g/L and 6.3&nbsp;g/L,
-                      and in the Dive Planner the algorithm actively delays switching to a richer deco gas
-                      if doing so would push density above the limit at that depth.
+                      Density warnings at 5.2&nbsp;g/L and 6.3&nbsp;g/L throughout. In the Dive Planner,
+                      the algorithm won't switch to a richer deco gas if it would push density over the
+                      limit at that depth.
                     </p>
                   </div>
                 </div>
@@ -63,12 +62,13 @@ export default function About() {
                       Tissue loading and M-value visualisation
                     </div>
                     <p style={{ fontSize: '0.85rem', marginBottom: 0 }}>
-                      The tissue saturation chart shows all 16 Bühlmann compartments with the GF-adjusted
-                      M-value limit marked on each bar. The compartment touching that line is the one
-                      controlling your ascent. At deep stops it tends to be the fast helium compartments;
-                      as you ascend, control passes to the slower nitrogen compartments. Click any point on
-                      the profile to inspect the tissue state at that moment. You won't find this level of
-                      visibility in most planning tools.
+                      Look for the <strong>Loading</strong> and <strong>M-value</strong> buttons in the
+                      decompression chart header. Loading shows all 16 Bühlmann compartments saturating
+                      and washing out across the full dive. M-value plots each compartment's pressure
+                      against its M-value line, with the GF ceiling shown separately — so you can see
+                      exactly which compartment is holding you at a stop and how close it is to the limit.
+                      Click any point on the profile first to lock the view to that moment in the dive.
+                      You won't find this in any other planning tool.
                     </p>
                   </div>
                 </div>
