@@ -45,15 +45,15 @@ const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
 const DEFAULT_CCR_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  2,   cyl_bar: 200, active: false },
-  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  5.7, cyl_bar: 207, active: false },
-  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l:  5.7, cyl_bar: 207, active: false },
-  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l:  5.7, cyl_bar: 207, active: false },
-  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l: 11.1, cyl_bar: 207, active: false },
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  11, cyl_bar: 200, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  11, cyl_bar: 207, active: false },
+  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l:  11, cyl_bar: 207, active: false },
+  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l:  11, cyl_bar: 207, active: false },
+  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l:  11, cyl_bar: 207, active: false },
 ]
 const DEFAULT_OC_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  7, cyl_bar: 210, active: false },
-  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  7, cyl_bar: 210, active: false },
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l: 11, cyl_bar: 210, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l: 11, cyl_bar: 210, active: false },
   { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l: 11, cyl_bar: 210, active: false },
   { o2: 36,  he: 0,  ppo2_limit: 1.4, mod_m: 27, cyl_l: 11, cyl_bar: 210, active: false },
   { o2: 32,  he: 0,  ppo2_limit: 1.4, mod_m: 33, cyl_l: 12, cyl_bar: 232, active: false },
