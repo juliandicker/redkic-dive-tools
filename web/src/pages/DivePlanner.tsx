@@ -374,19 +374,20 @@ export default function DivePlanner() {
     }))
     navigate('/simulator', {
       state: {
-        mode: 'oc',
+        mode: 'ccr',
         profile_points: bailoutProfilePoints,
         stops,
         depth_m: depth,
         bottom_time_min: btActual,
-        setpoint: undefined,
-        diluent_o2: undefined,
-        diluent_he: undefined,
+        setpoint: activeGas?.setpoint,
+        diluent_o2: activeGas?.o2,
+        diluent_he: activeGas?.he,
         gas_switches: result.bailout.gas_switches ?? [],
         bailout_gases: effectiveBailout.map(g => ({ o2: g.o2, he: g.he, mod_m: g.mod_m })),
         asc_rate_deep_mpm: settings.ascRateDeep,
         asc_rate_shallow_mpm: settings.ascRateShallow,
         last_stop_m: settings.lastStopM,
+        bailoutAtMin: btActual,
       } satisfies SimulatorInput,
     })
   }

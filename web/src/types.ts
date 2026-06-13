@@ -93,4 +93,5 @@ export interface SimulatorInput {
   asc_rate_deep_mpm: number
   asc_rate_shallow_mpm: number
   last_stop_m: number
+  bailoutAtMin?: number  // if set, mode switches from ccr→oc at this runtime
 }

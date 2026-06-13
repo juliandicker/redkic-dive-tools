@@ -216,8 +216,14 @@ export default function DiveSimulator() {
     return Math.ceil(nextStop.time_min)
   })()
 
+  // For bailout profiles, mode switches from ccr → oc at the bailout runtime
+  const currentMode: 'ccr' | 'oc' =
+    simInput.bailoutAtMin != null && frame.currentTime >= simInput.bailoutAtMin
+      ? 'oc'
+      : simInput.mode
+
   const gasLabel = (() => {
-    if (simInput.mode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
+    if (currentMode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
     const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
     const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
     return gas ? `${gas.o2}/${gas.he}` : '?'
@@ -347,7 +353,7 @@ export default function DiveSimulator() {
               tts={displayTts}
               ndl={ndl}
               sats={frame.sats}
-              mode={simInput.mode}
+              mode={currentMode}
               setpoint={simInput.setpoint}
               gasLabel={gasLabel}
               stopDepth={stopDepth}
