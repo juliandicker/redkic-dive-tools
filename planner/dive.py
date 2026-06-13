@@ -5,6 +5,7 @@ from .buhlmann import BuhlmannModel, SURFACE_BAR, WATER_VAPOUR_BAR, ZHL16C
 from gas_blender import gas_density as _gas_density_pct
 
 _DENSITY_SWITCH_LIMIT_GL = 5.2  # g/L — don't switch to a richer gas above this density
+MIN_PPO2_BAR = 0.18             # hypoxic planning floor: gas must reach this ppO2 to be breathable
 
 
 @dataclass
@@ -114,12 +115,44 @@ def _annotate_physics(profile_points, ppO2_at_depth, density_at_depth):
             cum_otu += _otu_rate_pm(avg_ppo2) * dt
 
 
+def _gas_floor_depth(gas):
+    """Depth (m) where gas ppO2 first reaches MIN_PPO2_BAR.
+
+    Negative means the gas is breathable at the surface.  Derived from
+    OpenCircuitGas.pp_o2: (p_abs - WATER_VAPOUR_BAR) * fo2 = MIN_PPO2_BAR,
+    with p_abs = depth/10 + SURFACE_BAR.
+    """
+    if gas.fo2 <= 0:
+        return float('inf')
+    return 10.0 * (MIN_PPO2_BAR / gas.fo2 + WATER_VAPOUR_BAR - SURFACE_BAR)
+
+
+def _select_travel_gas(sorted_gases, switch_depth_m):
+    """Return the surface-breathable gas with the deepest MOD that can reach switch_depth_m.
+
+    Picks the least-narcotic (most helium) surface-breathable option, matching
+    real-world practice of descending on a normoxic trimix travel mix.
+    Returns None if no configured gas passes the surface-breathability test.
+    """
+    candidates = [
+        g for g in sorted_gases
+        if g.pp_o2(SURFACE_BAR) >= MIN_PPO2_BAR and g.mod_m >= switch_depth_m
+    ]
+    return max(candidates, key=lambda g: g.mod_m) if candidates else None
+
+
 def _make_select_gas(sorted_gases):
-    """Return a _select_gas(depth_m) that picks the richest gas within ppO2 MOD
-    but skips gases exceeding the density switch limit when a less-dense
-    alternative is still available."""
+    """Return a _select_gas(depth_m) that picks the richest breathable gas (window
+    test: ppO2 floor ≤ gas ≤ MOD cap) at each depth, skipping gases that exceed
+    the density switch limit when a less-dense alternative is still available."""
     def _select_gas(depth_m: float):
-        available = [g for g in sorted_gases if depth_m <= g.mod_m]
+        p_abs = depth_m / 10.0 + SURFACE_BAR
+        available = [
+            g for g in sorted_gases
+            if depth_m <= g.mod_m and g.pp_o2(p_abs) >= MIN_PPO2_BAR
+        ]
+        if not available:
+            available = [g for g in sorted_gases if depth_m <= g.mod_m]
         if not available:
             return sorted_gases[-1]
         for g in available:
@@ -133,11 +166,16 @@ def _round_up_to_3m(depth_m):
     return int(math.ceil(depth_m / 3.0)) * 3
 
 
-def _build_bottom_model(gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high):
+def _build_bottom_model(gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high,
+                         travel_gas=None, travel_switch_depth_m=None):
     """Run descent + flat bottom time.
 
-    Returns (model, runtime_min, profile_points) so the caller can fork the
-    tissue state before the ascent: one branch for CCR, one for OC bailout.
+    If travel_gas and travel_switch_depth_m are given the descent is split:
+    travel_gas from 0→switch depth, then gas (back gas) from switch depth→bottom.
+    This correctly models hypoxic back gases that cannot be breathed near the surface.
+
+    Returns (model, runtime_min, profile_points) so the caller can fork the tissue
+    state before the ascent: one branch for CCR, one for OC bailout.
     """
     model = BuhlmannModel()
     runtime_min = 0.0
@@ -153,12 +191,22 @@ def _build_bottom_model(gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_
         })
 
     rec(0.0, 0.0)
-    desc_time = bottom_depth_m / desc_rate_mpm
-    flat_bottom_time = bottom_time_min - desc_time
+    total_desc_time = bottom_depth_m / desc_rate_mpm
+    flat_bottom_time = bottom_time_min - total_desc_time
     if flat_bottom_time < 0:
         raise ValueError("bottom_time_min must exceed descent time")
-    model.load_segment(gas, 0.0, bottom_depth_m, desc_time)
-    runtime_min += desc_time
+
+    if travel_gas is not None and travel_switch_depth_m:
+        switch_time = travel_switch_depth_m / desc_rate_mpm
+        model.load_segment(travel_gas, 0.0, travel_switch_depth_m, switch_time)
+        runtime_min += switch_time
+        rec(travel_switch_depth_m, model.ceiling_m(gf_low))
+        model.load_segment(gas, travel_switch_depth_m, bottom_depth_m, total_desc_time - switch_time)
+        runtime_min += total_desc_time - switch_time
+    else:
+        model.load_segment(gas, 0.0, bottom_depth_m, total_desc_time)
+        runtime_min += total_desc_time
+
     rec(bottom_depth_m, model.ceiling_m(gf_low))
 
     # Bottom time — 5-min chunks so long bottom times show gradual tissue loading
@@ -479,15 +527,29 @@ def plan_oc_dive(
 ):
     """Plan a full OC dive from surface to surface.
 
-    Selects the deepest-MOD gas for the bottom phase; switches to richer gases
-    by MOD on ascent. Returns a DiveProfile with gas_switches populated.
+    Selects the deepest-MOD gas for the bottom phase; switches to richer gases by
+    MOD on ascent.  If the back gas is hypoxic at the surface (ppO2 < MIN_PPO2_BAR)
+    a travel gas is selected automatically — the surface-breathable gas with the
+    deepest MOD — and used for the descent until the back gas becomes breathable.
+    Returns a DiveProfile with gas_switches populated.
     """
     sorted_gases = sorted(oc_gases, key=lambda g: g.mod_m)
     _select_gas = _make_select_gas(sorted_gases)
 
     bottom_gas = _select_gas(bottom_depth_m)
+
+    # Travel-gas logic: if back gas is hypoxic near the surface, switch at the
+    # shallowest 3 m grid depth where it becomes breathable.
+    _floor_d = _gas_floor_depth(bottom_gas)
+    _travel_gas = None
+    _switch_depth = None
+    if _floor_d > 0:
+        _switch_depth = _round_up_to_3m(_floor_d)
+        _travel_gas = _select_travel_gas(sorted_gases, _switch_depth)
+
     model, runtime_min, profile_points = _build_bottom_model(
-        bottom_gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high
+        bottom_gas, bottom_depth_m, bottom_time_min, desc_rate_mpm, gf_low, gf_high,
+        travel_gas=_travel_gas, travel_switch_depth_m=_switch_depth,
     )
     profile, gas_switches = _run_deco_ascent(
         model=model,
@@ -505,9 +567,9 @@ def plan_oc_dive(
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
 
-    # During descent and bottom the diver breathes the bottom gas; on ascent they
-    # switch to richer gases by MOD.  Detect the transition by tracking when depth
-    # first reaches (or passes) the maximum depth in the profile.
+    # Assign the correct gas to each profile point for ppO2/density annotation:
+    # travel gas during pre-switch descent (if any), back gas during the remaining
+    # descent and flat bottom, _select_gas on the ascent.
     _max_d = max((pt['d'] for pt in profile.profile_points), default=0)
     _seen_bottom = False
     _gas_per_pt = []
@@ -516,7 +578,10 @@ def plan_oc_dive(
             _seen_bottom = True
             _gas_per_pt.append(bottom_gas)
         elif not _seen_bottom:
-            _gas_per_pt.append(bottom_gas)
+            if _travel_gas is not None and pt['d'] < _switch_depth:
+                _gas_per_pt.append(_travel_gas)
+            else:
+                _gas_per_pt.append(bottom_gas)
         else:
             _gas_per_pt.append(_select_gas(pt['d']))
 
