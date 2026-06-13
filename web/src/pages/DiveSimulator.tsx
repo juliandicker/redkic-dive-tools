@@ -72,7 +72,11 @@ export default function DiveSimulator() {
   const maxDepth = pts.length ? Math.max(...pts.map(p => p.d)) + 5 : 50
 
   const ndlExpiry = useMemo(() => {
-    for (const p of pts) { if (p.c > 0) return p.t }
+    let lastZeroT = pts[0]?.t ?? 0
+    for (const p of pts) {
+      if (p.c > 0) return lastZeroT
+      lastZeroT = p.t
+    }
     return totalTime
   }, [pts, totalTime])
 
