@@ -234,6 +234,108 @@ def _run_deco_ascent(
     return profile, gas_switches
 
 
+def _project_tts(inert, depth_m, gf_low, gf_high, gas_at_depth, asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m):
+    """Return the TTS (minutes) from a given tissue state and depth.
+
+    Mirrors _run_deco_ascent's grid-walk and stop loop on a throwaway model
+    copy so it is self-consistent with the planner's own schedule.
+    """
+    model = BuhlmannModel()
+    for i, (pn2, phe) in enumerate(inert):
+        model.tissues[i].pn2 = pn2
+        model.tissues[i].phe = phe
+
+    def asc_rate(d):
+        return asc_rate_shallow_mpm if d <= 6.0 else asc_rate_deep_mpm
+
+    time = 0.0
+    current_depth = float(depth_m)
+    _cur_gas = gas_at_depth(current_depth)
+
+    # Align to 3 m grid
+    grid_depth = int(math.floor(current_depth / 3.0)) * 3
+    if grid_depth < current_depth:
+        seg = (current_depth - float(grid_depth)) / asc_rate_deep_mpm
+        model.load_segment(_cur_gas, current_depth, float(grid_depth), seg)
+        time += seg
+        current_depth = float(grid_depth)
+
+    # Walk up to find first stop (or surface if NDL)
+    first_stop_depth = None
+    while True:
+        ceiling = model.ceiling_m(gf_low)
+        if ceiling > 0.0 and _round_up_to_3m(ceiling) >= current_depth:
+            first_stop_depth = max(last_stop_m, int(current_depth))
+            break
+        if current_depth <= last_stop_m:
+            if ceiling > 0.0:
+                first_stop_depth = last_stop_m
+            break
+        next_depth = current_depth - 3.0
+        seg = 3.0 / asc_rate(current_depth)
+        next_gas = gas_at_depth(next_depth)
+        model.load_segment(_cur_gas, current_depth, next_depth, seg)
+        time += seg
+        current_depth = next_depth
+        if next_gas is not _cur_gas:
+            _cur_gas = next_gas
+
+    if first_stop_depth is None:
+        if current_depth > 0.0:
+            time += current_depth / asc_rate(current_depth)
+        return round(time, 1)
+
+    # Stop loop
+    stop_depth = first_stop_depth
+    while stop_depth >= last_stop_m:
+        gf = gf_low + (gf_high - gf_low) * (first_stop_depth - stop_depth) / first_stop_depth
+        gf = max(gf_low, min(gf_high, gf))
+        next_stop = stop_depth - 3 if stop_depth > last_stop_m else 0
+
+        def _raw_ceiling_m(g):
+            return (model.ceiling_bar(g) - SURFACE_BAR) * 10.0
+
+        g = gas_at_depth(float(stop_depth))
+        _cur_gas = g
+        stop_minutes = 0
+        while _raw_ceiling_m(gf) >= next_stop - 0.5:
+            model.load_segment(g, stop_depth, stop_depth, 1.0)
+            time += 1.0
+            stop_minutes += 1
+            if stop_minutes > 300:
+                break
+
+        next_depth = stop_depth - 3 if stop_depth > last_stop_m else 0
+        if next_depth > 0:
+            model.load_segment(_cur_gas, stop_depth, next_depth, 3.0 / asc_rate(stop_depth))
+            time += 3.0 / asc_rate(stop_depth)
+        stop_depth = next_depth
+
+    time += last_stop_m / asc_rate_shallow_mpm
+    return round(time, 1)
+
+
+def _annotate_tts(profile_points, total_time_min, gf_low, gf_high, gas_at_depth, asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m):
+    """Annotate each profile point with TTS (minutes).
+
+    Bottom-phase points use a forward projection from the current tissue state
+    so TTS rises as tissues load — the key teaching behaviour. Ascent/deco-phase
+    points use remaining plan time, which is self-consistent with the planner's
+    own GF gradient and stop schedule.
+    """
+    max_depth = max((pt['d'] for pt in profile_points), default=0)
+    for pt in profile_points:
+        if pt['d'] <= 0:
+            pt['tts'] = 0.0
+        elif pt['d'] >= max_depth:
+            pt['tts'] = _project_tts(
+                pt['inert'], pt['d'], gf_low, gf_high, gas_at_depth,
+                asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m,
+            )
+        else:
+            pt['tts'] = round(max(0.0, total_time_min - pt['t']), 1)
+
+
 def plan_ccr_dive(
     gas,
     bottom_depth_m,
@@ -267,6 +369,8 @@ def plan_ccr_dive(
         profile_points=profile_points,
     )
     profile.gas_switches = gas_switches
+    _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, lambda _: gas,
+                  asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
     return profile
 
 
@@ -306,6 +410,8 @@ def plan_oc_dive(
         profile_points=profile_points,
     )
     profile.gas_switches = gas_switches
+    _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
+                  asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
     return profile
 
 

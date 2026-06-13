@@ -57,10 +57,10 @@ function getPpO2(depth: number, input: SimulatorInput): number {
 }
 
 function interpolateProfile(pts: ProfilePoint[], t: number) {
-  if (!pts.length) return { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[] }
-  if (t <= pts[0].t) return { depth: pts[0].d, ceiling: pts[0].c, sats: [...pts[0].sats] }
+  if (!pts.length) return { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0 }
+  if (t <= pts[0].t) return { depth: pts[0].d, ceiling: pts[0].c, sats: [...pts[0].sats], tts: pts[0].tts ?? 0 }
   const last = pts[pts.length - 1]
-  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats] }
+  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0 }
   let lo = 0, hi = pts.length - 1
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1
@@ -68,10 +68,12 @@ function interpolateProfile(pts: ProfilePoint[], t: number) {
   }
   const p0 = pts[lo], p1 = pts[hi]
   const frac = (t - p0.t) / (p1.t - p0.t)
+  const t0 = p0.tts ?? 0, t1 = p1.tts ?? 0
   return {
     depth:   p0.d + frac * (p1.d - p0.d),
     ceiling: Math.max(0, p0.c + frac * (p1.c - p0.c)),
     sats:    p0.sats.map((s, i) => s + frac * ((p1.sats[i] ?? s) - s)),
+    tts:     Math.max(0, t0 + frac * (t1 - t0)),
   }
 }
 
@@ -110,6 +112,7 @@ interface SimulatorFrame {
   ppO2: number
   cns: number
   otu: number
+  tts: number
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -142,7 +145,7 @@ export default function DiveSimulator() {
 
   const [frame, setFrame] = useState<SimulatorFrame>({
     currentTime: 0, depth: 0, ceiling: 0,
-    sats: new Array(16).fill(0), ppO2: 0, cns: 0, otu: 0,
+    sats: new Array(16).fill(0), ppO2: 0, cns: 0, otu: 0, tts: 0,
   })
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(60)
@@ -257,10 +260,7 @@ export default function DiveSimulator() {
 
   if (!simInput) return null
 
-  const ASCENT_RATE = 10 // m/min
-  const tts = frame.ceiling > 0
-    ? Math.max(0, totalTime - frame.currentTime)
-    : Math.ceil(frame.depth / ASCENT_RATE)
+  const tts = frame.tts
   const ndl = Math.max(0, ndlExpiry - frame.currentTime)
 
   function fmtTime(t: number): string {
