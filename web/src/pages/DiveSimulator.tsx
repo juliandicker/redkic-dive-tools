@@ -122,6 +122,11 @@ export default function DiveSimulator() {
   const totalTime = pts.length ? pts[pts.length - 1].t : 1
   const maxDepth = pts.length ? Math.max(...pts.map(p => p.d)) + 5 : 50
 
+  const ndlExpiry = useMemo(() => {
+    for (const p of pts) { if (p.c > 0) return p.t }
+    return totalTime
+  }, [pts, totalTime])
+
   const { cnsTable, otuTable } = useMemo(() => {
     if (!simInput) return { cnsTable: [0], otuTable: [0] }
     const cns = [0], otu = [0]
@@ -253,6 +258,7 @@ export default function DiveSimulator() {
   if (!simInput) return null
 
   const tts = Math.max(0, totalTime - frame.currentTime)
+  const ndl = Math.max(0, ndlExpiry - frame.currentTime)
 
   function fmtTime(t: number): string {
     const s = Math.floor(t * 60)
@@ -300,6 +306,7 @@ export default function DiveSimulator() {
               cns={frame.cns}
               otu={frame.otu}
               tts={tts}
+              ndl={ndl}
               sats={frame.sats}
               mode={simInput.mode}
               setpoint={simInput.setpoint}

@@ -8,6 +8,7 @@ interface Props {
   cns: number
   otu: number
   tts: number
+  ndl: number
   sats: number[]
   mode: 'ccr' | 'oc'
   setpoint?: number
@@ -36,7 +37,7 @@ function satColor(pct: number): string {
 }
 
 const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
-  depth, elapsed, ceiling, ppO2, cns, otu, tts, sats, mode, setpoint,
+  depth, elapsed, ceiling, ppO2, cns, otu, tts, ndl, sats, mode, setpoint,
 }: Props) {
   const dimmed = '#4a5568'
   const bright = '#e2e8f0'
@@ -90,7 +91,7 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
           <div style={{ fontSize: '0.5rem', color: dimmed, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 2 }}>Ceiling</div>
           {ceiling > 0
             ? <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff6b6b' }}>DECO {ceiling.toFixed(0)} m</div>
-            : <div style={{ fontSize: '1rem', fontWeight: 700, color: '#2dce89' }}>NDL ✓</div>
+            : <div style={{ fontSize: '1rem', fontWeight: 700, color: '#2dce89' }}>NDL {Math.round(ndl)} min</div>
           }
         </div>
         <Metric label="TTS" value={Math.max(0, Math.round(tts)).toString()} unit="min" color={bright} />
