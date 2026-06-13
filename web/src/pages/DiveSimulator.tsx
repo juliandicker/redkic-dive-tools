@@ -263,6 +263,13 @@ export default function DiveSimulator() {
   const tts = frame.tts
   const ndl = Math.max(0, ndlExpiry - frame.currentTime)
 
+  const gasLabel = (() => {
+    if (simInput.mode === 'ccr') return `CCR ${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
+    const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
+    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
+    return gas ? `OC ${gas.o2}/${gas.he}` : 'OC 21/0'
+  })()
+
   function fmtTime(t: number): string {
     const s = Math.floor(t * 60)
     const h = Math.floor(s / 3600)
@@ -313,6 +320,7 @@ export default function DiveSimulator() {
               sats={frame.sats}
               mode={simInput.mode}
               setpoint={simInput.setpoint}
+              gasLabel={gasLabel}
             />
           </div>
         </div>

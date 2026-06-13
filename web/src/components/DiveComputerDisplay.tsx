@@ -12,129 +12,192 @@ interface Props {
   sats: number[]
   mode: 'ccr' | 'oc'
   setpoint?: number
+  gasLabel?: string
 }
 
-function formatElapsed(minutes: number): string {
-  const totalSecs = Math.floor(minutes * 60)
-  const h = Math.floor(totalSecs / 3600)
-  const m = Math.floor((totalSecs % 3600) / 60)
-  const s = totalSecs % 60
-  if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+// ── Constants ──────────────────────────────────────────────────────────────────
+const BG        = '#141b2d'
+const BLUE      = '#00b3e0'
+const WHITE     = '#ffffff'
+const DIM       = '#4a6080'
+const DIVIDER   = 'rgba(255,255,255,0.08)'
+const TISSUE_BG = '#1a2540'
+
+// Matches the dive planner's bar chart colours exactly
+function tissueColor(pct: number): string {
+  if (pct > 100) return 'rgba(220,53,69,0.9)'
+  if (pct > 80)  return 'rgba(255,140,0,0.9)'
+  return 'rgba(32,150,130,0.9)'
 }
 
 function ppO2Color(v: number): string {
   if (v < 0.18) return '#4dabf7'
-  if (v > 1.6)  return '#ff4444'
-  if (v > 1.4)  return '#ffa500'
-  return '#2dce89'
+  if (v > 1.6)  return 'rgba(220,53,69,1)'
+  if (v > 1.4)  return 'rgba(255,140,0,1)'
+  return 'rgba(32,150,130,1)'
 }
 
-function satColor(pct: number): string {
-  if (pct > 100) return '#ff4444'
-  if (pct > 80)  return '#ffa500'
-  return '#2dce89'
+function formatElapsed(minutes: number): string {
+  const s = Math.floor(minutes * 60)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
+  return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
 }
 
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: '0.48rem', color: BLUE, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 1 }}>
+      {children}
+    </div>
+  )
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
-  depth, elapsed, ceiling, ppO2, cns, otu, tts, ndl, sats, mode, setpoint,
+  depth, elapsed, ceiling, ppO2, cns, otu, tts, ndl, sats, mode, setpoint, gasLabel,
 }: Props) {
-  const dimmed = '#4a5568'
-  const bright = '#e2e8f0'
-  const border = '#2d3748'
+  const inDeco = ceiling > 0
+  const gas = gasLabel ?? (mode === 'ccr' ? `CCR SP ${(setpoint ?? 1.3).toFixed(1)}` : 'OC')
+  const cnsColor = cns > 80 ? 'rgba(220,53,69,1)' : cns > 40 ? 'rgba(255,140,0,1)' : WHITE
+  const otuColor = otu > 250 ? 'rgba(220,53,69,1)' : otu > 150 ? 'rgba(255,140,0,1)' : WHITE
 
   return (
     <div style={{
-      background: '#0a0d1a',
-      borderRadius: 12,
-      padding: '1.1rem 1.2rem',
-      fontFamily: "'Courier New', Courier, monospace",
-      color: bright,
-      border: `2px solid ${border}`,
-      boxShadow: '0 0 28px rgba(0,150,183,0.12)',
+      background: BG,
+      borderRadius: 10,
+      fontFamily: "'Arial', 'Helvetica', sans-serif",
+      color: WHITE,
+      border: '2px solid #1e2d47',
+      boxShadow: '0 0 20px rgba(0,179,224,0.08)',
+      overflow: 'hidden',
+      userSelect: 'none',
     }}>
-      {/* Depth + Time */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.9rem' }}>
+
+      {/* ── Row 1: DEPTH · TIME · STOP · TTS ───────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1.3fr 1fr 1fr 0.8fr',
+        padding: '0.5rem 0.65rem 0.45rem',
+        columnGap: '0.3rem',
+        borderBottom: `1px solid ${DIVIDER}`,
+      }}>
         <div>
-          <div style={{ fontSize: '0.55rem', color: dimmed, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>Depth</div>
-          <div style={{ fontSize: '2.6rem', fontWeight: 700, color: '#4dabf7', lineHeight: 1 }}>
-            {depth.toFixed(1)}<span style={{ fontSize: '1.1rem', color: dimmed, marginLeft: 4 }}>m</span>
+          <Label>DEPTH</Label>
+          <div style={{ fontSize: '2.2rem', fontWeight: 700, color: BLUE, lineHeight: 1 }}>
+            {depth.toFixed(1)}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.55rem', color: dimmed, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 2 }}>Time</div>
-          <div style={{ fontSize: '1.55rem', fontWeight: 700, color: bright, lineHeight: 1, letterSpacing: '0.04em' }}>
+        <div>
+          <Label>TIME</Label>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: WHITE, lineHeight: 1 }}>
             {formatElapsed(elapsed)}
           </div>
-          {mode === 'ccr' && setpoint != null && (
-            <div style={{ fontSize: '0.7rem', color: dimmed, marginTop: 3 }}>SP {setpoint.toFixed(1)} bar</div>
-          )}
+        </div>
+        <div>
+          <Label>STOP</Label>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, lineHeight: 1, color: inDeco ? 'rgba(220,53,69,1)' : DIM }}>
+            {inDeco ? `${ceiling.toFixed(0)} m` : '---'}
+          </div>
+        </div>
+        <div>
+          <Label>TTS</Label>
+          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: WHITE, lineHeight: 1 }}>
+            {Math.round(tts)}
+          </div>
         </div>
       </div>
 
-      <div style={{ borderTop: `1px solid ${border}`, marginBottom: '0.8rem' }} />
-
-      {/* ppO2 · CNS · OTU */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', marginBottom: '0.8rem' }}>
-        <Metric label="ppO₂" value={ppO2.toFixed(2)} unit="bar" color={ppO2Color(ppO2)} />
-        <Metric label="CNS" value={cns.toFixed(1)} unit="%" color={cns > 80 ? '#ff4444' : cns > 40 ? '#ffa500' : '#2dce89'} />
-        <Metric label="OTU" value={Math.round(otu).toString()} color={otu > 250 ? '#ff4444' : otu > 150 ? '#ffa500' : bright} />
-      </div>
-
-      {/* Ceiling · TTS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginBottom: '0.8rem' }}>
-        <div style={{
-          background: ceiling > 0 ? 'rgba(220,50,50,0.12)' : 'rgba(45,206,137,0.08)',
-          border: `1px solid ${ceiling > 0 ? 'rgba(220,50,50,0.4)' : 'rgba(45,206,137,0.25)'}`,
-          borderRadius: 6, padding: '0.35rem 0.55rem',
-        }}>
-          <div style={{ fontSize: '0.5rem', color: dimmed, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 2 }}>Ceiling</div>
-          {ceiling > 0
-            ? <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff6b6b' }}>DECO {ceiling.toFixed(0)} m</div>
-            : <div style={{ fontSize: '1rem', fontWeight: 700, color: '#2dce89' }}>NDL {Math.round(ndl)} min</div>
-          }
+      {/* ── Row 2: CNS/OTU · PPO₂ · CEIL ───────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1.2fr 1fr',
+        padding: '0.4rem 0.65rem',
+        columnGap: '0.3rem',
+        borderBottom: `1px solid ${DIVIDER}`,
+        alignItems: 'center',
+      }}>
+        {/* Left: CNS + OTU */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <div>
+            <Label>CNS</Label>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: cnsColor }}>{cns.toFixed(1)}%</div>
+          </div>
+          <div>
+            <Label>OTU</Label>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: otuColor }}>{Math.round(otu)}</div>
+          </div>
         </div>
-        <Metric label="TTS" value={Math.max(0, Math.round(tts)).toString()} unit="min" color={bright} />
+
+        {/* Center: PPO₂ */}
+        <div style={{ textAlign: 'center' }}>
+          <Label>PPO₂</Label>
+          <div style={{ fontSize: '2.3rem', fontWeight: 700, color: ppO2Color(ppO2), lineHeight: 1 }}>
+            {ppO2.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Right: CEIL */}
+        <div style={{ textAlign: 'right' }}>
+          <Label>CEIL</Label>
+          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: inDeco ? 'rgba(220,53,69,1)' : DIM }}>
+            {inDeco ? `${ceiling.toFixed(0)} m` : '0'}
+          </div>
+        </div>
       </div>
 
-      <div style={{ borderTop: `1px solid ${border}`, marginBottom: '0.7rem' }} />
-
-      {/* Tissue bars */}
-      <div style={{ fontSize: '0.5rem', color: dimmed, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
-        Tissue Loading
+      {/* ── Row 3: gas · NDL · TTS labels ───────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1.4fr 1fr 0.8fr',
+        padding: '0.1rem 0.65rem 0',
+        columnGap: '0.3rem',
+      }}>
+        <Label>O₂ / HE</Label>
+        <Label>NDL</Label>
+        <Label>TTS</Label>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.18rem 0.8rem' }}>
-        {sats.map((sat, i) => {
-          const pct = Math.round(sat * 100)
-          const col = satColor(pct)
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <div style={{ fontSize: '0.5rem', color: dimmed, width: '1.5rem', textAlign: 'right', flexShrink: 0 }}>
-                C{i + 1}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1.4fr 1fr 0.8fr',
+        padding: '0 0.65rem 0.4rem',
+        columnGap: '0.3rem',
+        borderBottom: `1px solid ${DIVIDER}`,
+        alignItems: 'baseline',
+      }}>
+        <div style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '0.02em' }}>{gas}</div>
+        <div style={{ fontSize: '1.05rem', fontWeight: 700, color: inDeco ? 'rgba(220,53,69,1)' : '#ffd700' }}>
+          {inDeco ? `${ceiling.toFixed(0)} m` : Math.round(ndl)}
+        </div>
+        <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{Math.round(tts)}</div>
+      </div>
+
+      {/* ── Tissue bars (vertical, matching planner) ─────── */}
+      <div style={{ padding: '0.35rem 0.5rem 0.45rem' }}>
+        <Label>Tissue Loading</Label>
+        <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 56, marginTop: '0.2rem' }}>
+          {sats.map((sat, i) => {
+            const pct = Math.min(110, Math.round(sat * 100))
+            const fillH = Math.max(1, (pct / 110) * 48)
+            const col = tissueColor(pct)
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{
+                  width: '100%', height: 48,
+                  background: TISSUE_BG, borderRadius: 2,
+                  display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                }}>
+                  <div style={{ height: fillH, background: col, borderRadius: 2 }} />
+                </div>
+                <div style={{ fontSize: '0.3rem', color: DIM, marginTop: 2 }}>C{i + 1}</div>
               </div>
-              <div style={{ flex: 1, height: 5, background: '#1a2040', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: col, borderRadius: 3 }} />
-              </div>
-              <div style={{ fontSize: '0.48rem', color: col, width: '1.8rem', textAlign: 'right', flexShrink: 0 }}>
-                {pct}%
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 })
-
-function Metric({ label, value, unit, color }: { label: string; value: string; unit?: string; color: string }) {
-  return (
-    <div style={{ background: '#0d1428', border: '1px solid #2d3748', borderRadius: 6, padding: '0.35rem 0.55rem' }}>
-      <div style={{ fontSize: '0.5rem', color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: '1rem', fontWeight: 700, color }}>
-        {value}{unit && <span style={{ fontSize: '0.6rem', marginLeft: 2 }}>{unit}</span>}
-      </div>
-    </div>
-  )
-}
 
 export default DiveComputerDisplay
