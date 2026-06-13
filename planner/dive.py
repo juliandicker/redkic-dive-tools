@@ -1,7 +1,7 @@
 import copy
 import math
 from dataclasses import dataclass, field
-from .buhlmann import BuhlmannModel, SURFACE_BAR
+from .buhlmann import BuhlmannModel, SURFACE_BAR, WATER_VAPOUR_BAR, ZHL16C
 from gas_blender import gas_density as _gas_density_pct
 
 _DENSITY_SWITCH_LIMIT_GL = 5.2  # g/L — don't switch to a richer gas above this density
@@ -25,6 +25,89 @@ class DiveProfile:
 
 def _gas_density_at_depth(gas, depth_m: float) -> float:
     return _gas_density_pct(gas.fo2 * 100, gas.fhe * 100, depth_m)
+
+
+_CNS_TABLE = [
+    (0.50, 0.0),
+    (0.60, 100.0 / 720),
+    (0.70, 100.0 / 570),
+    (0.80, 100.0 / 450),
+    (0.90, 100.0 / 360),
+    (1.00, 100.0 / 300),
+    (1.10, 100.0 / 270),
+    (1.20, 100.0 / 240),
+    (1.30, 100.0 / 210),
+    (1.40, 100.0 / 180),
+    (1.50, 100.0 / 150),
+    (1.60, 100.0 / 120),
+]
+
+
+def _cns_rate_pm(ppo2):
+    if ppo2 <= 0.5:
+        return 0.0
+    if ppo2 >= 1.6:
+        return 100.0 / 120
+    for i in range(len(_CNS_TABLE) - 1):
+        p0, r0 = _CNS_TABLE[i]
+        p1, r1 = _CNS_TABLE[i + 1]
+        if p0 <= ppo2 <= p1:
+            return r0 + (ppo2 - p0) / (p1 - p0) * (r1 - r0)
+    return 0.0
+
+
+def _otu_rate_pm(ppo2):
+    if ppo2 <= 0.5:
+        return 0.0
+    return ((ppo2 - 0.5) / 0.5) ** (5.0 / 6)
+
+
+def _ccr_loop_density(ccr_gas, depth_m):
+    """Gas density of CCR loop at depth, accounting for setpoint-adjusted O2 fraction."""
+    p_amb = depth_m / 10.0 + 1.0  # matches gas_blender.gas_density convention
+    fO2_loop = min(ccr_gas.setpoint / p_amb, ccr_gas.fo2)
+    inert_dil = ccr_gas.fn2 + ccr_gas.fhe
+    remaining = 1.0 - fO2_loop
+    fHe_loop = ccr_gas.fhe / inert_dil * remaining if inert_dil > 0 else 0.0
+    return _gas_density_pct(fO2_loop * 100, fHe_loop * 100, depth_m)
+
+
+def _annotate_physics(profile_points, ppO2_at_depth, density_at_depth):
+    """Annotate each profile point with ppO2, gf99, cumulative cns/otu, and gas density."""
+    def _gf99(inert, depth_m):
+        p_amb = depth_m / 10.0 + SURFACE_BAR
+        worst = -math.inf
+        for coeff, (pn2, phe) in zip(ZHL16C, inert):
+            _, a_n2, b_n2, _, a_he, b_he = coeff
+            p = pn2 + phe
+            if p <= 0:
+                continue
+            a = (a_n2 * pn2 + a_he * phe) / p
+            b = (b_n2 * pn2 + b_he * phe) / p
+            m = p_amb / b + a
+            denom = m - p_amb
+            if abs(denom) < 1e-9:
+                continue
+            gf = (p - p_amb) / denom * 100.0
+            if gf > worst:
+                worst = gf
+        return round(worst, 1) if math.isfinite(worst) else 0.0
+
+    ppo2s = [ppO2_at_depth(pt['d']) for pt in profile_points]
+    cum_cns = 0.0
+    cum_otu = 0.0
+
+    for i, pt in enumerate(profile_points):
+        pt['gf99'] = _gf99(pt.get('inert', []), pt['d'])
+        pt['ppO2'] = round(ppo2s[i], 3)
+        pt['density_gl'] = density_at_depth(pt['d'])
+        pt['cns'] = round(cum_cns, 2)
+        pt['otu'] = round(cum_otu, 2)
+        if i < len(profile_points) - 1:
+            dt = profile_points[i + 1]['t'] - pt['t']
+            avg_ppo2 = (ppo2s[i] + ppo2s[i + 1]) / 2
+            cum_cns += _cns_rate_pm(avg_ppo2) * dt
+            cum_otu += _otu_rate_pm(avg_ppo2) * dt
 
 
 def _make_select_gas(sorted_gases):
@@ -371,6 +454,11 @@ def plan_ccr_dive(
     profile.gas_switches = gas_switches
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, lambda _: gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
+    _annotate_physics(
+        profile.profile_points,
+        ppO2_at_depth=lambda d: min(gas.setpoint, max(0.0, d / 10.0 + SURFACE_BAR - WATER_VAPOUR_BAR)),
+        density_at_depth=lambda d: _ccr_loop_density(gas, d),
+    )
     return profile
 
 
@@ -412,6 +500,11 @@ def plan_oc_dive(
     profile.gas_switches = gas_switches
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
+    _annotate_physics(
+        profile.profile_points,
+        ppO2_at_depth=lambda d: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
+        density_at_depth=lambda d: _gas_density_at_depth(_select_gas(d), d),
+    )
     return profile
 
 
@@ -456,4 +549,9 @@ def plan_oc_bailout(
     )
 
     profile.gas_switches = gas_switches
+    _annotate_physics(
+        profile.profile_points,
+        ppO2_at_depth=lambda d: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
+        density_at_depth=lambda d: _gas_density_at_depth(_select_gas(d), d),
+    )
     return profile

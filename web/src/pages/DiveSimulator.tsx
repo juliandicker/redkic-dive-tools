@@ -9,100 +9,17 @@ import {
 import { Line } from 'react-chartjs-2'
 import Header from '../components/Header'
 import DiveComputerDisplay from '../components/DiveComputerDisplay'
-import { gasDensityAtDepth } from '../utils'
 import type { ProfilePoint, SimulatorInput } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-// ── ZHL-16C coefficients: [a_N2, b_N2, a_He, b_He] per compartment ──────────
-const ZHL16C_AB: [number, number, number, number][] = [
-  [1.1696, 0.5578, 1.6189, 0.4770],
-  [1.0000, 0.6514, 1.3830, 0.5747],
-  [0.8618, 0.7222, 1.1919, 0.6527],
-  [0.7562, 0.7825, 1.0458, 0.7223],
-  [0.6200, 0.8126, 0.9220, 0.7582],
-  [0.5043, 0.8434, 0.8205, 0.7957],
-  [0.4410, 0.8693, 0.7305, 0.8279],
-  [0.4000, 0.8910, 0.6502, 0.8553],
-  [0.4187, 0.9092, 0.5950, 0.8757],
-  [0.3798, 0.9222, 0.5545, 0.8903],
-  [0.3497, 0.9319, 0.5333, 0.8997],
-  [0.3223, 0.9403, 0.5189, 0.9073],
-  [0.2971, 0.9477, 0.5181, 0.9122],
-  [0.2737, 0.9544, 0.5176, 0.9171],
-  [0.2523, 0.9602, 0.5172, 0.9217],
-  [0.2327, 0.9653, 0.5119, 0.9267],
-]
-const SURFACE_BAR = 1.013
-
-function computeGF99(inert: [number, number][], depthM: number): number {
-  const pAmb = depthM / 10 + SURFACE_BAR
-  let worst = -Infinity
-  for (let i = 0; i < inert.length; i++) {
-    const [pN2, pHe] = inert[i]
-    const p = pN2 + pHe
-    if (p <= 0) continue
-    const [aN2, bN2, aHe, bHe] = ZHL16C_AB[i]
-    const a = (aN2 * pN2 + aHe * pHe) / p
-    const b = (bN2 * pN2 + bHe * pHe) / p
-    const m = pAmb / b + a
-    const denominator = m - pAmb
-    if (Math.abs(denominator) < 1e-9) continue
-    const gf = (p - pAmb) / denominator * 100
-    if (gf > worst) worst = gf
-  }
-  return worst === -Infinity ? 0 : worst
-}
-
-// ── CNS / OTU rate functions (NOAA table, ported from DivePlanner/__init__.py) ─
-
-const CNS_TABLE: [number, number][] = [
-  [0.50, 0.0],
-  [0.60, 100 / 720],
-  [0.70, 100 / 570],
-  [0.80, 100 / 450],
-  [0.90, 100 / 360],
-  [1.00, 100 / 300],
-  [1.10, 100 / 270],
-  [1.20, 100 / 240],
-  [1.30, 100 / 210],
-  [1.40, 100 / 180],
-  [1.50, 100 / 150],
-  [1.60, 100 / 120],
-]
-
-function cnsRate(ppO2: number): number {
-  if (ppO2 <= 0.5) return 0
-  if (ppO2 >= 1.6) return 100 / 120
-  for (let i = 0; i < CNS_TABLE.length - 1; i++) {
-    const [p0, r0] = CNS_TABLE[i]
-    const [p1, r1] = CNS_TABLE[i + 1]
-    if (p0 <= ppO2 && ppO2 <= p1) return r0 + (ppO2 - p0) / (p1 - p0) * (r1 - r0)
-  }
-  return 0
-}
-
-function otuRate(ppO2: number): number {
-  if (ppO2 <= 0.5) return 0
-  return Math.pow((ppO2 - 0.5) / 0.5, 5 / 6)
-}
-
-// ── Dive-physics helpers ───────────────────────────────────────────────────────
-
-function getPpO2(depth: number, input: SimulatorInput): number {
-  const ambient = depth / 10 + 1
-  if (input.mode === 'ccr') return Math.min(input.setpoint ?? 1.3, ambient)
-  const sorted = [...input.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
-  const gas = sorted.find(g => depth <= g.mod_m) ?? sorted[sorted.length - 1]
-  return gas ? (gas.o2 / 100) * ambient : (21 / 100) * ambient
-}
-
 function interpolateProfile(pts: ProfilePoint[], t: number) {
-  const emptyInert = ZHL16C_AB.map(() => [0, 0] as [number, number])
-  if (!pts.length) return { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0, inert: emptyInert }
-  if (t <= pts[0].t) return { depth: pts[0].d, ceiling: pts[0].c, sats: [...pts[0].sats], tts: pts[0].tts ?? 0, inert: pts[0].inert as [number, number][] ?? emptyInert }
+  const empty = { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0, ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0 }
+  if (!pts.length) return empty
+  const first = pts[0]
+  if (t <= first.t) return { depth: first.d, ceiling: first.c, sats: [...first.sats], tts: first.tts ?? 0, ppO2: first.ppO2 ?? 0, cns: first.cns ?? 0, otu: first.otu ?? 0, gf99: first.gf99 ?? 0, densityGl: first.density_gl ?? 0 }
   const last = pts[pts.length - 1]
-  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0, inert: last.inert as [number, number][] ?? emptyInert }
+  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0, ppO2: last.ppO2 ?? 0, cns: last.cns ?? 0, otu: last.otu ?? 0, gf99: last.gf99 ?? 0, densityGl: last.density_gl ?? 0 }
   let lo = 0, hi = pts.length - 1
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1
@@ -110,35 +27,17 @@ function interpolateProfile(pts: ProfilePoint[], t: number) {
   }
   const p0 = pts[lo], p1 = pts[hi]
   const frac = (t - p0.t) / (p1.t - p0.t)
-  const t0 = p0.tts ?? 0, t1 = p1.tts ?? 0
-  const in0 = p0.inert as [number, number][] ?? emptyInert
-  const in1 = p1.inert as [number, number][] ?? emptyInert
+  const lerp = (a: number, b: number) => a + frac * (b - a)
   return {
-    depth:   p0.d + frac * (p1.d - p0.d),
-    ceiling: Math.max(0, p0.c + frac * (p1.c - p0.c)),
-    sats:    p0.sats.map((s, i) => s + frac * ((p1.sats[i] ?? s) - s)),
-    tts:     Math.max(0, t0 + frac * (t1 - t0)),
-    inert:   in0.map(([n0, h0], i) => [n0 + frac * ((in1[i]?.[0] ?? n0) - n0), h0 + frac * ((in1[i]?.[1] ?? h0) - h0)] as [number, number]),
-  }
-}
-
-function getCnsOtuAt(
-  t: number,
-  pts: ProfilePoint[],
-  cnsTable: number[],
-  otuTable: number[],
-): { cns: number; otu: number } {
-  if (!pts.length || t <= 0) return { cns: 0, otu: 0 }
-  if (t >= pts[pts.length - 1].t) return { cns: cnsTable[cnsTable.length - 1], otu: otuTable[otuTable.length - 1] }
-  let lo = 0, hi = pts.length - 1
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1
-    if (pts[mid].t <= t) lo = mid; else hi = mid
-  }
-  const frac = (t - pts[lo].t) / (pts[hi].t - pts[lo].t)
-  return {
-    cns: cnsTable[lo] + frac * (cnsTable[hi] - cnsTable[lo]),
-    otu: otuTable[lo] + frac * (otuTable[hi] - otuTable[lo]),
+    depth:     lerp(p0.d, p1.d),
+    ceiling:   Math.max(0, lerp(p0.c, p1.c)),
+    sats:      p0.sats.map((s, i) => lerp(s, p1.sats[i] ?? s)),
+    tts:       Math.max(0, lerp(p0.tts ?? 0, p1.tts ?? 0)),
+    ppO2:      lerp(p0.ppO2 ?? 0, p1.ppO2 ?? 0),
+    cns:       lerp(p0.cns ?? 0, p1.cns ?? 0),
+    otu:       lerp(p0.otu ?? 0, p1.otu ?? 0),
+    gf99:      lerp(p0.gf99 ?? 0, p1.gf99 ?? 0),
+    densityGl: lerp(p0.density_gl ?? 0, p1.density_gl ?? 0),
   }
 }
 
@@ -154,10 +53,11 @@ interface SimulatorFrame {
   depth: number
   ceiling: number
   sats: number[]
-  inert: [number, number][]
   ppO2: number
   cns: number
   otu: number
+  gf99: number
+  densityGl: number
   tts: number
 }
 
@@ -176,23 +76,10 @@ export default function DiveSimulator() {
     return totalTime
   }, [pts, totalTime])
 
-  const { cnsTable, otuTable } = useMemo(() => {
-    if (!simInput) return { cnsTable: [0], otuTable: [0] }
-    const cns = [0], otu = [0]
-    for (let i = 0; i < pts.length - 1; i++) {
-      const dt = pts[i + 1].t - pts[i].t
-      const avgDepth = (pts[i].d + pts[i + 1].d) / 2
-      const ppO2 = getPpO2(avgDepth, simInput)
-      cns.push(cns[i] + cnsRate(ppO2) * dt)
-      otu.push(otu[i] + otuRate(ppO2) * dt)
-    }
-    return { cnsTable: cns, otuTable: otu }
-  }, [pts, simInput])
-
   const [frame, setFrame] = useState<SimulatorFrame>({
     currentTime: 0, depth: 0, ceiling: 0,
-    sats: new Array(16).fill(0), inert: ZHL16C_AB.map(() => [0, 0]),
-    ppO2: 0, cns: 0, otu: 0, tts: 0,
+    sats: new Array(16).fill(0),
+    ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0, tts: 0,
   })
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(60)
@@ -211,12 +98,7 @@ export default function DiveSimulator() {
   // Initialise display at t=0 once profile is available
   useEffect(() => {
     if (!simInput || !pts.length) return
-    const state = interpolateProfile(pts, 0)
-    setFrame({
-      currentTime: 0, ...state,
-      ppO2: getPpO2(state.depth, simInput),
-      cns: 0, otu: 0,
-    })
+    setFrame({ currentTime: 0, ...interpolateProfile(pts, 0) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Playback engine — advances currentTime 100ms per tick
@@ -227,15 +109,12 @@ export default function DiveSimulator() {
         if (prev.currentTime >= totalTime) { setPlaying(false); return prev }
         const dt = speedRef.current / 60 * 0.1   // minutes of dive per 100ms tick
         const nextTime = Math.min(prev.currentTime + dt, totalTime)
-        const state = interpolateProfile(pts, nextTime)
-        const ppO2 = getPpO2(state.depth, simInput)
-        const { cns, otu } = getCnsOtuAt(nextTime, pts, cnsTable, otuTable)
         if (nextTime >= totalTime) setPlaying(false)
-        return { currentTime: nextTime, ...state, ppO2, cns, otu }
+        return { currentTime: nextTime, ...interpolateProfile(pts, nextTime) }
       })
     }, 100)
     return () => clearInterval(id)
-  }, [playing, pts, simInput, totalTime, cnsTable, otuTable])
+  }, [playing, pts, simInput, totalTime])
 
   // Update chart cursor imperatively (avoids re-rendering the whole chart on every tick)
   useEffect(() => {
@@ -251,10 +130,7 @@ export default function DiveSimulator() {
 
   function scrubTo(t: number) {
     if (!simInput) return
-    const state = interpolateProfile(pts, t)
-    const ppO2 = getPpO2(state.depth, simInput)
-    const { cns, otu } = getCnsOtuAt(t, pts, cnsTable, otuTable)
-    setFrame({ currentTime: t, ...state, ppO2, cns, otu })
+    setFrame({ currentTime: t, ...interpolateProfile(pts, t) })
   }
 
   // Static chart data — computed once from profile (cursor updated imperatively above)
@@ -336,30 +212,12 @@ export default function DiveSimulator() {
     return Math.ceil(nextStop.time_min)
   })()
 
-  const currentGas = (() => {
-    if (simInput.mode === 'ccr') return { o2: simInput.diluent_o2 ?? 21, he: simInput.diluent_he ?? 0 }
+  const gasLabel = (() => {
+    if (simInput.mode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
     const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
-    return sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1] ?? { o2: 21, he: 0 }
+    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
+    return gas ? `${gas.o2}/${gas.he}` : '?'
   })()
-
-  const gasLabel = simInput.mode === 'ccr'
-    ? `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
-    : `${currentGas.o2}/${currentGas.he}`
-
-  // Gas density: CCR uses setpoint-adjusted loop gas fractions
-  const gasDensity = (() => {
-    if (simInput.mode === 'ccr' && simInput.setpoint != null) {
-      const pAmb = frame.depth / 10 + 1
-      const fO2loop = Math.min((simInput.setpoint ?? 1.3) / pAmb, (simInput.diluent_o2 ?? 21) / 100)
-      const fHedil = (simInput.diluent_he ?? 0) / 100
-      const fO2dil = (simInput.diluent_o2 ?? 21) / 100
-      const fHeloop = fO2dil < 1 ? fHedil * (1 - fO2loop) / (1 - fO2dil) : 0
-      return gasDensityAtDepth(fO2loop * 100, fHeloop * 100, frame.depth)
-    }
-    return gasDensityAtDepth(currentGas.o2, currentGas.he, frame.depth)
-  })()
-
-  const gf99 = computeGF99(frame.inert, frame.depth)
 
   function fmtTime(t: number): string {
     const s = Math.floor(t * 60)
@@ -490,8 +348,8 @@ export default function DiveSimulator() {
               gasLabel={gasLabel}
               stopDepth={stopDepth}
               stopTime={stopTime}
-              gf99={gf99}
-              gasDensity={gasDensity}
+              gf99={frame.gf99}
+              gasDensity={frame.densityGl}
             />
           </div>
         </div>

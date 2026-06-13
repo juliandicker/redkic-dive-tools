@@ -94,6 +94,11 @@ class ProfilePoint(BaseModel):
     sats: List[float] = Field(description="Tissue saturation ratios (16 compartments)")
     inert: List[List[float]] = Field(default_factory=list, description="Inert gas loads [[pn2, phe]] per compartment")
     tts: Optional[float] = Field(default=None, description="Time to surface (min) — forward projection from current tissue state")
+    gf99: Optional[float] = Field(default=None, description="Current gradient factor of leading tissue, raw % (Perdix spec)")
+    ppO2: Optional[float] = Field(default=None, description="ppO₂ (bar)")
+    cns: Optional[float] = Field(default=None, description="Cumulative CNS oxygen toxicity (%)")
+    otu: Optional[float] = Field(default=None, description="Cumulative OTU")
+    density_gl: Optional[float] = Field(default=None, description="Gas density (g/L)")
 
 
 class GasSwitch(BaseModel):
