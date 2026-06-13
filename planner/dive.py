@@ -22,6 +22,9 @@ class DiveProfile:
     profile_points: list = field(default_factory=list)  # [{t, d, c, sats}] time/depth/ceiling (m)
     tissue_saturations: list = field(default_factory=list)  # saturation ratio per compartment
     gas_switches: list = field(default_factory=list)  # [{depth_m, label}]
+    travel_gas_o2: int = 0         # O2% of descent travel gas (0 = no travel gas)
+    travel_gas_he: int = 0
+    travel_switch_depth_m: int = 0  # depth where travel gas switches to back gas
 
 
 def _gas_density_at_depth(gas, depth_m: float) -> float:
@@ -511,6 +514,9 @@ def plan_ccr_dive(
         ppO2_at_depth=lambda d, _i: min(gas.setpoint, max(0.0, d / 10.0 + SURFACE_BAR - WATER_VAPOUR_BAR)),
         density_at_depth=lambda d, _i: _ccr_loop_density(gas, d),
     )
+    for pt in profile.profile_points:
+        pt['gas_o2'] = round(gas.fo2 * 100)
+        pt['gas_he'] = round(gas.fhe * 100)
     return profile
 
 
@@ -564,6 +570,11 @@ def plan_oc_dive(
         profile_points=profile_points,
     )
     profile.gas_switches = gas_switches
+    if _travel_gas is not None:
+        profile.travel_gas_o2 = round(_travel_gas.fo2 * 100)
+        profile.travel_gas_he = round(_travel_gas.fhe * 100)
+        profile.travel_switch_depth_m = _switch_depth
+
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
 
@@ -590,6 +601,9 @@ def plan_oc_dive(
         ppO2_at_depth=lambda d, i: _gas_per_pt[i].pp_o2(d / 10.0 + SURFACE_BAR),
         density_at_depth=lambda d, i: _gas_density_at_depth(_gas_per_pt[i], d),
     )
+    for i, pt in enumerate(profile.profile_points):
+        pt['gas_o2'] = round(_gas_per_pt[i].fo2 * 100)
+        pt['gas_he'] = round(_gas_per_pt[i].fhe * 100)
     return profile
 
 
@@ -639,4 +653,8 @@ def plan_oc_bailout(
         ppO2_at_depth=lambda d, _i: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
         density_at_depth=lambda d, _i: _gas_density_at_depth(_select_gas(d), d),
     )
+    for pt in profile.profile_points:
+        g = _select_gas(pt['d'])
+        pt['gas_o2'] = round(g.fo2 * 100)
+        pt['gas_he'] = round(g.fhe * 100)
     return profile

@@ -223,20 +223,14 @@ export default function DiveSimulator() {
       : simInput.mode
 
   const gasLabel = (() => {
-    if (currentMode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
-    const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
-    const bottomGas = sorted[sorted.length - 1]
-    // Before ascent begins (descent + bottom phase on a non-bailout OC dive),
-    // the diver breathes the bottom gas (or travel gas on descent if back gas is hypoxic).
-    const preAscent = simInput.bailoutAtMin == null && frame.currentTime <= simInput.bottom_time_min
-    if (preAscent) {
-      const tg = simInput.travel_gas
-      if (tg && frame.depth < tg.switch_depth_m) return `${tg.o2}/${tg.he}`
-      return bottomGas ? `${bottomGas.o2}/${bottomGas.he}` : '?'
+    // Find the last profile point at or before current time and read the gas the backend assigned.
+    let cur: ProfilePoint | undefined
+    for (const p of pts) {
+      if (p.t <= frame.currentTime) cur = p
+      else break
     }
-    // On ascent (or during the OC phase of a bailout), switch to richest gas within MOD.
-    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? bottomGas
-    return gas ? `${gas.o2}/${gas.he}` : '?'
+    if (cur?.gas_o2 != null) return `${cur.gas_o2}/${cur.gas_he ?? 0}`
+    return '?'
   })()
 
   function fmtTime(t: number): string {

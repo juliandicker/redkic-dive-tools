@@ -20,7 +20,7 @@ export interface TrimixBlendResponse {
 
 export interface Warning { level: string; message: string }
 export interface DecoStop { depth_m: number; time_min: number; runtime_min: number }
-export interface ProfilePoint { t: number; d: number; c: number; sats: number[]; inert?: [number, number][]; tts?: number; gf99?: number; ppO2?: number; cns?: number; otu?: number; density_gl?: number }
+export interface ProfilePoint { t: number; d: number; c: number; sats: number[]; inert?: [number, number][]; tts?: number; gf99?: number; ppO2?: number; cns?: number; otu?: number; density_gl?: number; gas_o2?: number; gas_he?: number }
 export interface DensityAnalysis {
   density_gl: number
   exceeded_recommended: boolean
@@ -96,5 +96,4 @@ export interface SimulatorInput {
   asc_rate_shallow_mpm: number
   last_stop_m: number
   bailoutAtMin?: number  // if set, mode switches from ccr→oc at this runtime
-  travel_gas?: TravelGas  // OC only — descent switch from travel gas to hypoxic back gas
 }

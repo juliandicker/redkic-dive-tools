@@ -12,6 +12,7 @@ def build_profile_points(profile_points) -> List[ProfilePoint]:
             gf99=pp.get('gf99'), ppO2=pp.get('ppO2'),
             cns=pp.get('cns'), otu=pp.get('otu'),
             density_gl=pp.get('density_gl'),
+            gas_o2=pp.get('gas_o2'), gas_he=pp.get('gas_he'),
         )
         for pp in profile_points
     ]

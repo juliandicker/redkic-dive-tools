@@ -99,11 +99,19 @@ class ProfilePoint(BaseModel):
     cns: Optional[float] = Field(default=None, description="Cumulative CNS oxygen toxicity (%)")
     otu: Optional[float] = Field(default=None, description="Cumulative OTU")
     density_gl: Optional[float] = Field(default=None, description="Gas density (g/L)")
+    gas_o2: Optional[int] = Field(default=None, description="Gas O₂ % breathed at this point")
+    gas_he: Optional[int] = Field(default=None, description="Gas He % breathed at this point")
 
 
 class GasSwitch(BaseModel):
     depth_m: float
     label: str
+
+
+class TravelGas(BaseModel):
+    o2: int
+    he: int
+    switch_depth_m: int
 
 
 class GasSupplyEntry(BaseModel):
@@ -141,4 +149,5 @@ class DivePlannerResponse(BaseModel):
     bottom_time_actual: float
     gas_switches: List[GasSwitch] = Field(default=[], description="Gas switches during the dive (OC mode)")
     gas_supply: Optional[List[GasSupplyEntry]] = Field(default=None, description="Gas supply summary (OC mode)")
+    travel_gas: Optional[TravelGas] = Field(default=None, description="Descent travel gas (OC only, when back gas is hypoxic at surface)")
     bailout: Optional[BailoutPlan] = None
