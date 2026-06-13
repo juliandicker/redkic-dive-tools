@@ -7,6 +7,10 @@ export function surfaceDensity(o2: number, he: number): number {
   return fO2 * RHO_O2 + fN2 * RHO_N2 + fHe * RHO_HE
 }
 
+export function gasDensityAtDepth(o2: number, he: number, depthM: number): number {
+  return surfaceDensity(o2, he) * (depthM / 10 + 1)
+}
+
 export function densityLimitDepth(o2: number, he: number, limitGl = 5.2): number {
   const rho0 = surfaceDensity(o2, he)
   if (rho0 <= 0) return 999

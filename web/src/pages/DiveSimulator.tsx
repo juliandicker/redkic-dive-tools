@@ -9,9 +9,50 @@ import {
 import { Line } from 'react-chartjs-2'
 import Header from '../components/Header'
 import DiveComputerDisplay from '../components/DiveComputerDisplay'
+import { gasDensityAtDepth } from '../utils'
 import type { ProfilePoint, SimulatorInput } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+
+// ── ZHL-16C coefficients: [a_N2, b_N2, a_He, b_He] per compartment ──────────
+const ZHL16C_AB: [number, number, number, number][] = [
+  [1.1696, 0.5578, 1.6189, 0.4770],
+  [1.0000, 0.6514, 1.3830, 0.5747],
+  [0.8618, 0.7222, 1.1919, 0.6527],
+  [0.7562, 0.7825, 1.0458, 0.7223],
+  [0.6200, 0.8126, 0.9220, 0.7582],
+  [0.5043, 0.8434, 0.8205, 0.7957],
+  [0.4410, 0.8693, 0.7305, 0.8279],
+  [0.4000, 0.8910, 0.6502, 0.8553],
+  [0.4187, 0.9092, 0.5950, 0.8757],
+  [0.3798, 0.9222, 0.5545, 0.8903],
+  [0.3497, 0.9319, 0.5333, 0.8997],
+  [0.3223, 0.9403, 0.5189, 0.9073],
+  [0.2971, 0.9477, 0.5181, 0.9122],
+  [0.2737, 0.9544, 0.5176, 0.9171],
+  [0.2523, 0.9602, 0.5172, 0.9217],
+  [0.2327, 0.9653, 0.5119, 0.9267],
+]
+const SURFACE_BAR = 1.013
+
+function computeGF99(inert: [number, number][], depthM: number): number {
+  const pAmb = depthM / 10 + SURFACE_BAR
+  let worst = -Infinity
+  for (let i = 0; i < inert.length; i++) {
+    const [pN2, pHe] = inert[i]
+    const p = pN2 + pHe
+    if (p <= 0) continue
+    const [aN2, bN2, aHe, bHe] = ZHL16C_AB[i]
+    const a = (aN2 * pN2 + aHe * pHe) / p
+    const b = (bN2 * pN2 + bHe * pHe) / p
+    const m = pAmb / b + a
+    const denominator = m - pAmb
+    if (Math.abs(denominator) < 1e-9) continue
+    const gf = (p - pAmb) / denominator * 100
+    if (gf > worst) worst = gf
+  }
+  return worst === -Infinity ? 0 : worst
+}
 
 // ── CNS / OTU rate functions (NOAA table, ported from DivePlanner/__init__.py) ─
 
@@ -57,10 +98,11 @@ function getPpO2(depth: number, input: SimulatorInput): number {
 }
 
 function interpolateProfile(pts: ProfilePoint[], t: number) {
-  if (!pts.length) return { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0 }
-  if (t <= pts[0].t) return { depth: pts[0].d, ceiling: pts[0].c, sats: [...pts[0].sats], tts: pts[0].tts ?? 0 }
+  const emptyInert = ZHL16C_AB.map(() => [0, 0] as [number, number])
+  if (!pts.length) return { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0, inert: emptyInert }
+  if (t <= pts[0].t) return { depth: pts[0].d, ceiling: pts[0].c, sats: [...pts[0].sats], tts: pts[0].tts ?? 0, inert: pts[0].inert as [number, number][] ?? emptyInert }
   const last = pts[pts.length - 1]
-  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0 }
+  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0, inert: last.inert as [number, number][] ?? emptyInert }
   let lo = 0, hi = pts.length - 1
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1
@@ -69,11 +111,14 @@ function interpolateProfile(pts: ProfilePoint[], t: number) {
   const p0 = pts[lo], p1 = pts[hi]
   const frac = (t - p0.t) / (p1.t - p0.t)
   const t0 = p0.tts ?? 0, t1 = p1.tts ?? 0
+  const in0 = p0.inert as [number, number][] ?? emptyInert
+  const in1 = p1.inert as [number, number][] ?? emptyInert
   return {
     depth:   p0.d + frac * (p1.d - p0.d),
     ceiling: Math.max(0, p0.c + frac * (p1.c - p0.c)),
     sats:    p0.sats.map((s, i) => s + frac * ((p1.sats[i] ?? s) - s)),
     tts:     Math.max(0, t0 + frac * (t1 - t0)),
+    inert:   in0.map(([n0, h0], i) => [n0 + frac * ((in1[i]?.[0] ?? n0) - n0), h0 + frac * ((in1[i]?.[1] ?? h0) - h0)] as [number, number]),
   }
 }
 
@@ -109,6 +154,7 @@ interface SimulatorFrame {
   depth: number
   ceiling: number
   sats: number[]
+  inert: [number, number][]
   ppO2: number
   cns: number
   otu: number
@@ -145,7 +191,8 @@ export default function DiveSimulator() {
 
   const [frame, setFrame] = useState<SimulatorFrame>({
     currentTime: 0, depth: 0, ceiling: 0,
-    sats: new Array(16).fill(0), ppO2: 0, cns: 0, otu: 0, tts: 0,
+    sats: new Array(16).fill(0), inert: ZHL16C_AB.map(() => [0, 0]),
+    ppO2: 0, cns: 0, otu: 0, tts: 0,
   })
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(60)
@@ -289,12 +336,30 @@ export default function DiveSimulator() {
     return Math.ceil(nextStop.time_min)
   })()
 
-  const gasLabel = (() => {
-    if (simInput.mode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
+  const currentGas = (() => {
+    if (simInput.mode === 'ccr') return { o2: simInput.diluent_o2 ?? 21, he: simInput.diluent_he ?? 0 }
     const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
-    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
-    return gas ? `${gas.o2}/${gas.he}` : '21/0'
+    return sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1] ?? { o2: 21, he: 0 }
   })()
+
+  const gasLabel = simInput.mode === 'ccr'
+    ? `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
+    : `${currentGas.o2}/${currentGas.he}`
+
+  // Gas density: CCR uses setpoint-adjusted loop gas fractions
+  const gasDensity = (() => {
+    if (simInput.mode === 'ccr' && simInput.setpoint != null) {
+      const pAmb = frame.depth / 10 + 1
+      const fO2loop = Math.min((simInput.setpoint ?? 1.3) / pAmb, (simInput.diluent_o2 ?? 21) / 100)
+      const fHedil = (simInput.diluent_he ?? 0) / 100
+      const fO2dil = (simInput.diluent_o2 ?? 21) / 100
+      const fHeloop = fO2dil < 1 ? fHedil * (1 - fO2loop) / (1 - fO2dil) : 0
+      return gasDensityAtDepth(fO2loop * 100, fHeloop * 100, frame.depth)
+    }
+    return gasDensityAtDepth(currentGas.o2, currentGas.he, frame.depth)
+  })()
+
+  const gf99 = computeGF99(frame.inert, frame.depth)
 
   function fmtTime(t: number): string {
     const s = Math.floor(t * 60)
@@ -426,6 +491,8 @@ export default function DiveSimulator() {
               gasLabel={gasLabel}
               stopDepth={stopDepth}
               stopTime={stopTime}
+              gf99={gf99}
+              gasDensity={gasDensity}
             />
           </div>
         </div>

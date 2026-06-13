@@ -15,6 +15,8 @@ interface Props {
   gasLabel?: string
   stopDepth: number
   stopTime: number
+  gf99: number
+  gasDensity: number
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ function Label({ children }: { children: React.ReactNode }) {
 // ── Component ──────────────────────────────────────────────────────────────────
 const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
   depth, elapsed, ceiling, ppO2, cns, otu, tts, ndl, sats, mode, setpoint, gasLabel,
-  stopDepth, stopTime,
+  stopDepth, stopTime, gf99, gasDensity,
 }: Props) {
   const inDeco = ceiling > 0
   const modeLabel = mode === 'ccr' ? `CCR ${(setpoint ?? 1.3).toFixed(1)}` : 'OC'
@@ -127,8 +129,8 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
           </div>
         </div>
 
-        {/* Right: CEIL + GF */}
-        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+        {/* Right: CEIL + GF99 + DENS */}
+        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
           <div>
             <Label>CEIL</Label>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: inDeco ? 'rgba(220,53,69,1)' : DIM }}>
@@ -136,9 +138,18 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
             </div>
           </div>
           <div>
-            <Label>GF</Label>
+            <Label>GF99</Label>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: WHITE }}>
-              {Math.round(Math.max(...sats) * 100)}%
+              {Math.round(gf99)}%
+            </div>
+          </div>
+          <div>
+            <Label>G/L</Label>
+            <div style={{
+              fontSize: '0.9rem', fontWeight: 700,
+              color: gasDensity >= 6.2 ? 'rgba(220,53,69,1)' : gasDensity >= 5.2 ? 'rgba(255,140,0,1)' : WHITE,
+            }}>
+              {gasDensity.toFixed(2)}
             </div>
           </div>
         </div>
