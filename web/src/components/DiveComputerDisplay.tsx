@@ -137,7 +137,7 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
       </div>
 
       {/* ── Mode · Gas · NDL · TTS ───────────────────────── */}
-      <div style={{ padding: '0.3rem 0.65rem 0.4rem', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+      <div style={{ padding: '0.3rem 0.65rem 0.4rem', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <Label>MODE</Label>
           <div style={{ fontSize: '1.0rem', fontWeight: 700, letterSpacing: '0.04em', color: BLUE }}>
@@ -156,7 +156,7 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
             {inDeco ? '0' : Math.round(ndl)}
           </div>
         </div>
-        <div>
+        <div style={{ textAlign: 'right' }}>
           <Label>TTS</Label>
           <div style={{ fontSize: '1.0rem', fontWeight: 700, color: WHITE }}>
             {Math.round(tts)}
