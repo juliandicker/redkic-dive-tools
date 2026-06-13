@@ -199,6 +199,7 @@ export default function DiveSimulator() {
 
   const speedRef = useRef(speed)
   const chartRef = useRef<ChartJS<'line'>>(null)
+  const isDragging = useRef(false)
 
   useEffect(() => { speedRef.current = speed }, [speed])
 
@@ -392,13 +393,22 @@ export default function DiveSimulator() {
               <div className="card-body">
                 <div
                   style={{ height: 300, position: 'relative', cursor: 'crosshair' }}
-                  onClick={e => {
+                  onMouseDown={e => {
+                    isDragging.current = true
                     const chart = chartRef.current
                     if (!chart) return
-                    const rect = chart.canvas.getBoundingClientRect()
-                    const t = chart.scales.x.getValueForPixel(e.clientX - rect.left) ?? 0
+                    const t = chart.scales.x.getValueForPixel(e.clientX - chart.canvas.getBoundingClientRect().left) ?? 0
                     scrubTo(Math.max(0, Math.min(totalTime, t)))
                   }}
+                  onMouseMove={e => {
+                    if (!isDragging.current) return
+                    const chart = chartRef.current
+                    if (!chart) return
+                    const t = chart.scales.x.getValueForPixel(e.clientX - chart.canvas.getBoundingClientRect().left) ?? 0
+                    scrubTo(Math.max(0, Math.min(totalTime, t)))
+                  }}
+                  onMouseUp={() => { isDragging.current = false }}
+                  onMouseLeave={() => { isDragging.current = false }}
                   onTouchStart={e => {
                     const chart = chartRef.current
                     if (!chart) return
