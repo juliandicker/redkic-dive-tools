@@ -51,13 +51,14 @@ interface PlanSectionProps {
   isBailout?: boolean
   bailoutInitialGas?: { o2: number; he: number } | null
   xAxisMax?: number
+  onSimulate?: () => void
 }
 
 export default function PlanSection({
   title, decoStops, totalTimeMin, ttsMin, cnsPct, otu,
   profilePoints, tissueSaturations, gasSwitches,
   gasSupply, warnings, gfHigh, diluent, ocBackGas, depthM, btMin, descRate,
-  isBailout, bailoutInitialGas, xAxisMax,
+  isBailout, bailoutInitialGas, xAxisMax, onSimulate,
 }: PlanSectionProps) {
   const [hoveredSats, setHoveredSats] = useState<number[] | null>(null)
   const profileRef = useRef<ChartJS<'line'>>(null)
@@ -254,7 +255,14 @@ export default function PlanSection({
       <div className="row g-3 align-items-start">
         {/* Left col: heading + schedule table + metrics */}
         <div className="col-12 col-lg-5">
-          <div className="mb-1"><span className="result-heading">{title}</span></div>
+          <div className="mb-1 d-flex align-items-center gap-2">
+            <span className="result-heading">{title}</span>
+            {onSimulate && (
+              <button className="btn btn-sm btn-outline-secondary" onClick={onSimulate} title="Simulate this dive">
+                <i className="bi bi-play-circle me-1" />Simulate
+              </button>
+            )}
+          </div>
 
           <div className="card mb-0">
             <div className="card-body p-0">

@@ -364,6 +364,27 @@ export default function DivePlanner() {
     })
   }
 
+  function handleBailoutSimulate() {
+    if (!result?.bailout) return
+    navigate('/simulator', {
+      state: {
+        mode: 'oc',
+        profile_points: result.bailout.profile_points,
+        stops: result.bailout.stops,
+        depth_m: depth,
+        bottom_time_min: btActual,
+        setpoint: undefined,
+        diluent_o2: undefined,
+        diluent_he: undefined,
+        gas_switches: result.bailout.gas_switches ?? [],
+        bailout_gases: effectiveBailout.map(g => ({ o2: g.o2, he: g.he, mod_m: g.mod_m })),
+        asc_rate_deep_mpm: settings.ascRateDeep,
+        asc_rate_shallow_mpm: settings.ascRateShallow,
+        last_stop_m: settings.lastStopM,
+      } satisfies SimulatorInput,
+    })
+  }
+
   // ── Gas library actions ──────────────────────────────────────────────────────
 
   function selectGas(id: number) {
@@ -697,11 +718,6 @@ export default function DivePlanner() {
         extraButtons={
           <>
             {result && (
-              <button className="btn-cog" onClick={handleSimulate} title="Simulate dive">
-                <i className="bi bi-play-circle" />
-              </button>
-            )}
-            {result && (
               <button className="btn-cog" onClick={() => window.print()} title="Print / Save as PDF">
                 <i className="bi bi-printer" />
               </button>
@@ -892,6 +908,7 @@ export default function DivePlanner() {
               btMin={btActual}
               descRate={effectiveSettings.descRate}
               xAxisMax={sharedXMax}
+              onSimulate={handleSimulate}
             />
 
             {result.bailout && activeGas && (
@@ -916,6 +933,7 @@ export default function DivePlanner() {
                   isBailout
                   bailoutInitialGas={bailoutInitialGas}
                   xAxisMax={sharedXMax}
+                  onSimulate={handleBailoutSimulate}
                 />
               </div>
             )}
