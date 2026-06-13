@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Offcanvas from 'react-bootstrap/Offcanvas'
 import Modal from 'react-bootstrap/Modal'
 import Header from '../components/Header'
@@ -9,7 +10,7 @@ import PlanSection from '../components/PlanSection'
 import { divePlan } from '../api'
 import { load, save } from '../storage'
 import { densityLimitDepth, bestMix, bailoutAutoMod, calcMod, gasName } from '../utils'
-import type { GasEntry, BailoutEntry, PlannerSettings, SavedPlan, DivePlannerResponse } from '../types'
+import type { GasEntry, BailoutEntry, PlannerSettings, SavedPlan, DivePlannerResponse, SimulatorInput } from '../types'
 
 // ── URL share helpers ──────────────────────────────────────────────────────────
 
@@ -143,6 +144,8 @@ interface SavePlanModal { open: boolean; name: string; pending: Omit<SavedPlan, 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function DivePlanner() {
+  const navigate = useNavigate()
+
   const [gasLib,   setGasLib]   = useState<GasEntry[]>(() =>
     load<{ gases: GasEntry[]; nextId: number } | null>('planner_gases', null)?.gases ?? makeGasLibrary()
   )
@@ -338,6 +341,23 @@ export default function DivePlanner() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleSimulate() {
+    if (!result) return
+    navigate('/simulator', {
+      state: {
+        mode: diveMode,
+        profile_points: result.profile_points,
+        depth_m: depth,
+        bottom_time_min: btActual,
+        setpoint: diveMode === 'ccr' ? activeGas?.setpoint : undefined,
+        diluent_o2: diveMode === 'ccr' ? activeGas?.o2 : undefined,
+        diluent_he: diveMode === 'ccr' ? activeGas?.he : undefined,
+        gas_switches: result.gas_switches ?? [],
+        bailout_gases: effectiveBailout.map(g => ({ o2: g.o2, he: g.he, mod_m: g.mod_m })),
+      } satisfies SimulatorInput,
+    })
   }
 
   // ── Gas library actions ──────────────────────────────────────────────────────
@@ -672,6 +692,11 @@ export default function DivePlanner() {
         tagline={`Bühlmann ZHL-16C decompression planner — ${diveMode === 'oc' ? 'OC' : 'CCR'} trimix`}
         extraButtons={
           <>
+            {result && (
+              <button className="btn-cog" onClick={handleSimulate} title="Simulate dive">
+                <i className="bi bi-play-circle" />
+              </button>
+            )}
             {result && (
               <button className="btn-cog" onClick={() => window.print()} title="Print / Save as PDF">
                 <i className="bi bi-printer" />

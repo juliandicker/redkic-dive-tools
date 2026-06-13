@@ -76,3 +76,17 @@ export interface SavedPlan {
   depth_m: number; bottom_time_min: number
   bailout_gases?: { o2: number; he: number; cyl_l?: number; cyl_bar?: number; mod_m?: number }[]
 }
+
+// ── Dive Simulator ─────────────────────────────────────────────────────────────
+
+export interface SimulatorInput {
+  mode: 'ccr' | 'oc'
+  profile_points: ProfilePoint[]
+  depth_m: number
+  bottom_time_min: number
+  setpoint?: number
+  diluent_o2?: number
+  diluent_he?: number
+  gas_switches: GasSwitch[]
+  bailout_gases: { o2: number; he: number; mod_m: number }[]
+}
