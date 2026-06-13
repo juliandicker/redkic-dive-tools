@@ -255,11 +255,11 @@ export default function PlanSection({
       <div className="row g-3 align-items-start">
         {/* Left col: heading + schedule table + metrics */}
         <div className="col-12 col-lg-5">
-          <div className="mb-1 d-flex align-items-center gap-2">
-            <span className="result-heading">{title}</span>
+          <div className="mb-2 d-flex align-items-center justify-content-between">
+            <span className="result-heading" style={{ marginBottom: 0, borderBottom: 'none' }}>{title}</span>
             {onSimulate && (
-              <button className="btn btn-sm btn-outline-secondary" onClick={onSimulate} title="Simulate this dive">
-                <i className="bi bi-play-circle me-1" />Simulate
+              <button className="btn btn-apply btn-sm" onClick={onSimulate}>
+                <i className="bi bi-play-fill me-1" />Simulate
               </button>
             )}
           </div>
