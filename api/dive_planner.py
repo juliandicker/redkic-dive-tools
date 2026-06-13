@@ -19,6 +19,7 @@ from api.dive_planner_models import (
     DivePlannerRequest,
     DivePlannerResponse,
     GasSwitch,
+    TravelGas,
     Warning,
 )
 from api.dive_planner_warnings import PlanWarnings
@@ -177,6 +178,14 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
     w.add_oc_gases()
     w.add_cns(cns_pct)
 
+    travel_gas = None
+    if profile.travel_switch_depth_m:
+        travel_gas = TravelGas(
+            o2=profile.travel_gas_o2,
+            he=profile.travel_gas_he,
+            switch_depth_m=profile.travel_switch_depth_m,
+        )
+
     return DivePlannerResponse(
         stops=build_deco_stops(profile.stops),
         total_time_min=profile.total_time_min,
@@ -194,6 +203,7 @@ def _plan_oc(req, gf_low, gf_high, oc_gases, oc_gas_volumes):
         bottom_time_actual=bottom_time_actual,
         gas_switches=[GasSwitch(depth_m=gs['depth_m'], label=gs['label']) for gs in profile.gas_switches],
         gas_supply=build_gas_supply(profile, sorted_gases, sorted_volumes, req) if not gas_infeasible else None,
+        travel_gas=travel_gas,
         bailout=None,
     )
 
