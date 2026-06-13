@@ -225,7 +225,13 @@ export default function DiveSimulator() {
   const gasLabel = (() => {
     if (currentMode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
     const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
-    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
+    const bottomGas = sorted[sorted.length - 1]
+    // Before ascent begins (descent + bottom phase on a non-bailout OC dive),
+    // the diver breathes the bottom gas — not deco gases.
+    const preAscent = simInput.bailoutAtMin == null && frame.currentTime <= simInput.bottom_time_min
+    if (preAscent) return bottomGas ? `${bottomGas.o2}/${bottomGas.he}` : '?'
+    // On ascent (or during the OC phase of a bailout), switch to richest gas within MOD.
+    const gas = sorted.find(g => frame.depth <= g.mod_m) ?? bottomGas
     return gas ? `${gas.o2}/${gas.he}` : '?'
   })()
 

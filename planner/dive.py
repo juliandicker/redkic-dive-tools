@@ -73,7 +73,11 @@ def _ccr_loop_density(ccr_gas, depth_m):
 
 
 def _annotate_physics(profile_points, ppO2_at_depth, density_at_depth):
-    """Annotate each profile point with ppO2, gf99, cumulative cns/otu, and gas density."""
+    """Annotate each profile point with ppO2, gf99, cumulative cns/otu, and gas density.
+
+    ppO2_at_depth(depth_m, index) and density_at_depth(depth_m, index) accept both
+    depth and point index so callers can vary gas by phase (descent vs ascent).
+    """
     def _gf99(inert, depth_m):
         p_amb = depth_m / 10.0 + SURFACE_BAR
         worst = -math.inf
@@ -93,14 +97,14 @@ def _annotate_physics(profile_points, ppO2_at_depth, density_at_depth):
                 worst = gf
         return round(worst, 1) if math.isfinite(worst) else 0.0
 
-    ppo2s = [ppO2_at_depth(pt['d']) for pt in profile_points]
+    ppo2s = [ppO2_at_depth(pt['d'], i) for i, pt in enumerate(profile_points)]
     cum_cns = 0.0
     cum_otu = 0.0
 
     for i, pt in enumerate(profile_points):
         pt['gf99'] = _gf99(pt.get('inert', []), pt['d'])
         pt['ppO2'] = round(ppo2s[i], 3)
-        pt['density_gl'] = density_at_depth(pt['d'])
+        pt['density_gl'] = density_at_depth(pt['d'], i)
         pt['cns'] = round(cum_cns, 2)
         pt['otu'] = round(cum_otu, 2)
         if i < len(profile_points) - 1:
@@ -456,8 +460,8 @@ def plan_ccr_dive(
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
     _annotate_physics(
         profile.profile_points,
-        ppO2_at_depth=lambda d: min(gas.setpoint, max(0.0, d / 10.0 + SURFACE_BAR - WATER_VAPOUR_BAR)),
-        density_at_depth=lambda d: _ccr_loop_density(gas, d),
+        ppO2_at_depth=lambda d, _i: min(gas.setpoint, max(0.0, d / 10.0 + SURFACE_BAR - WATER_VAPOUR_BAR)),
+        density_at_depth=lambda d, _i: _ccr_loop_density(gas, d),
     )
     return profile
 
@@ -500,10 +504,26 @@ def plan_oc_dive(
     profile.gas_switches = gas_switches
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
+
+    # During descent and bottom the diver breathes the bottom gas; on ascent they
+    # switch to richer gases by MOD.  Detect the transition by tracking when depth
+    # first reaches (or passes) the maximum depth in the profile.
+    _max_d = max((pt['d'] for pt in profile.profile_points), default=0)
+    _seen_bottom = False
+    _gas_per_pt = []
+    for pt in profile.profile_points:
+        if pt['d'] >= _max_d - 0.05:
+            _seen_bottom = True
+            _gas_per_pt.append(bottom_gas)
+        elif not _seen_bottom:
+            _gas_per_pt.append(bottom_gas)
+        else:
+            _gas_per_pt.append(_select_gas(pt['d']))
+
     _annotate_physics(
         profile.profile_points,
-        ppO2_at_depth=lambda d: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
-        density_at_depth=lambda d: _gas_density_at_depth(_select_gas(d), d),
+        ppO2_at_depth=lambda d, i: _gas_per_pt[i].pp_o2(d / 10.0 + SURFACE_BAR),
+        density_at_depth=lambda d, i: _gas_density_at_depth(_gas_per_pt[i], d),
     )
     return profile
 
@@ -551,7 +571,7 @@ def plan_oc_bailout(
     profile.gas_switches = gas_switches
     _annotate_physics(
         profile.profile_points,
-        ppO2_at_depth=lambda d: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
-        density_at_depth=lambda d: _gas_density_at_depth(_select_gas(d), d),
+        ppO2_at_depth=lambda d, _i: _select_gas(d).pp_o2(d / 10.0 + SURFACE_BAR),
+        density_at_depth=lambda d, _i: _gas_density_at_depth(_select_gas(d), d),
     )
     return profile
