@@ -49,7 +49,7 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
   stopDepth, stopTime, gf99, gasDensity,
 }: Props) {
   const inDeco = ceiling > 0
-  const modeLabel = mode === 'ccr' ? `CCR ${(setpoint ?? 1.3).toFixed(1)}` : 'OC'
+  const modeLabel = mode === 'ccr' ? 'CC' : 'OC'
   const gas = gasLabel ?? (mode === 'ccr' ? `${(setpoint ?? 1.3).toFixed(1)}` : '?')
   const cnsColor = cns > 80 ? 'rgba(220,53,69,1)' : cns > 40 ? 'rgba(255,140,0,1)' : WHITE
   const otuColor = otu > 250 ? 'rgba(220,53,69,1)' : otu > 150 ? 'rgba(255,140,0,1)' : WHITE
