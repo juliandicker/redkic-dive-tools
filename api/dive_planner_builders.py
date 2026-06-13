@@ -6,7 +6,7 @@ from api.dive_planner_models import DecoStop, GasSupplyEntry, ProfilePoint
 
 def build_profile_points(profile_points) -> List[ProfilePoint]:
     return [
-        ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'], inert=pp.get('inert', []))
+        ProfilePoint(t=pp['t'], d=pp['d'], c=pp['c'], sats=pp['sats'], inert=pp.get('inert', []), tts=pp.get('tts'))
         for pp in profile_points
     ]
 

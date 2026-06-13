@@ -93,6 +93,7 @@ class ProfilePoint(BaseModel):
     c: float = Field(description="Ceiling (m)")
     sats: List[float] = Field(description="Tissue saturation ratios (16 compartments)")
     inert: List[List[float]] = Field(default_factory=list, description="Inert gas loads [[pn2, phe]] per compartment")
+    tts: Optional[float] = Field(default=None, description="Time to surface (min) — forward projection from current tissue state")
 
 
 class GasSwitch(BaseModel):
