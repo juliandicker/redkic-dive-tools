@@ -121,7 +121,7 @@ def _build_bailout_plan(
         return BailoutPlan(
             stops=build_deco_stops(bailout.stops),
             total_time_min=bailout.total_time_min,
-            tts_min=round(max(0.0, bailout.total_time_min - bottom_time_actual), 1),
+            tts_min=round(bailout.total_time_min, 1),
             cns_pct=round(loop_cns + oc_cns, 1),
             otu=round(loop_otu + oc_otu, 1),
             gas_switches=[GasSwitch(depth_m=gs['depth_m'], label=gs['label']) for gs in bailout.gas_switches],
