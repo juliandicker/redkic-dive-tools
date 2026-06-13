@@ -366,11 +366,17 @@ export default function DivePlanner() {
 
   function handleBailoutSimulate() {
     if (!result?.bailout) return
+    // Offset bailout stop runtimes to match the absolute timeline (bailoutProfilePoints
+    // prepends the CCR descent+bottom so t=0 is dive start, not bailout start)
+    const stops = result.bailout.stops.map(s => ({
+      ...s,
+      runtime_min: s.runtime_min + btActual,
+    }))
     navigate('/simulator', {
       state: {
         mode: 'oc',
-        profile_points: result.bailout.profile_points,
-        stops: result.bailout.stops,
+        profile_points: bailoutProfilePoints,
+        stops,
         depth_m: depth,
         bottom_time_min: btActual,
         setpoint: undefined,
