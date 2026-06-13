@@ -127,11 +127,19 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
           </div>
         </div>
 
-        {/* Right: CEIL */}
-        <div style={{ textAlign: 'right' }}>
-          <Label>CEIL</Label>
-          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: inDeco ? 'rgba(220,53,69,1)' : DIM }}>
-            {inDeco ? `${ceiling.toFixed(0)} m` : '0'}
+        {/* Right: CEIL + GF */}
+        <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+          <div>
+            <Label>CEIL</Label>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: inDeco ? 'rgba(220,53,69,1)' : DIM }}>
+              {inDeco ? `${ceiling.toFixed(0)} m` : '0'}
+            </div>
+          </div>
+          <div>
+            <Label>GF</Label>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: WHITE }}>
+              {Math.round(Math.max(...sats) * 100)}%
+            </div>
           </div>
         </div>
       </div>
