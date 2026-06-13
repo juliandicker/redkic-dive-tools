@@ -251,7 +251,6 @@ export default function DiveSimulator() {
 
   function scrubTo(t: number) {
     if (!simInput) return
-    setPlaying(false)
     const state = interpolateProfile(pts, t)
     const ppO2 = getPpO2(state.depth, simInput)
     const { cns, otu } = getCnsOtuAt(t, pts, cnsTable, otuTable)
@@ -448,7 +447,7 @@ export default function DiveSimulator() {
 
                   <button
                     className="btn btn-outline-secondary btn-sm"
-                    onClick={() => scrubTo(0)}
+                    onClick={() => { setPlaying(false); scrubTo(0) }}
                     title="Reset"
                   >
                     <i className="bi bi-skip-backward-fill" />
