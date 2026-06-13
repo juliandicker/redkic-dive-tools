@@ -53,7 +53,8 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
   stopDepth, stopTime,
 }: Props) {
   const inDeco = ceiling > 0
-  const gas = gasLabel ?? (mode === 'ccr' ? `CCR SP ${(setpoint ?? 1.3).toFixed(1)}` : 'OC')
+  const modeLabel = mode === 'ccr' ? `CCR ${(setpoint ?? 1.3).toFixed(1)}` : 'OC'
+  const gas = gasLabel ?? (mode === 'ccr' ? `${(setpoint ?? 1.3).toFixed(1)}` : '?')
   const cnsColor = cns > 80 ? 'rgba(220,53,69,1)' : cns > 40 ? 'rgba(255,140,0,1)' : WHITE
   const otuColor = otu > 250 ? 'rgba(220,53,69,1)' : otu > 150 ? 'rgba(255,140,0,1)' : WHITE
 
@@ -147,20 +148,37 @@ const DiveComputerDisplay = React.memo(function DiveComputerDisplay({
         </div>
       </div>
 
-      {/* ── Gas box ──────────────────────────────────────── */}
-      <div style={{ padding: '0.3rem 0.65rem', borderBottom: `1px solid ${DIVIDER}` }}>
-        <Label>GAS</Label>
-        <div style={{
-          display: 'inline-block',
-          padding: '0.15rem 0.55rem',
-          border: `1px solid ${BLUE}`,
-          borderRadius: 4,
-          fontSize: '1.0rem',
-          fontWeight: 700,
-          letterSpacing: '0.04em',
-          color: WHITE,
-        }}>
-          {gas}
+      {/* ── Mode + Gas boxes ─────────────────────────────── */}
+      <div style={{ padding: '0.3rem 0.65rem', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+        <div>
+          <Label>MODE</Label>
+          <div style={{
+            display: 'inline-block',
+            padding: '0.15rem 0.55rem',
+            border: `1px solid ${BLUE}`,
+            borderRadius: 4,
+            fontSize: '1.0rem',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            color: BLUE,
+          }}>
+            {modeLabel}
+          </div>
+        </div>
+        <div>
+          <Label>GAS</Label>
+          <div style={{
+            display: 'inline-block',
+            padding: '0.15rem 0.55rem',
+            border: `1px solid rgba(255,255,255,0.25)`,
+            borderRadius: 4,
+            fontSize: '1.0rem',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            color: WHITE,
+          }}>
+            {gas}
+          </div>
         </div>
       </div>
 

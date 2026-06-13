@@ -290,10 +290,10 @@ export default function DiveSimulator() {
   })()
 
   const gasLabel = (() => {
-    if (simInput.mode === 'ccr') return `CCR ${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
+    if (simInput.mode === 'ccr') return `${simInput.diluent_o2 ?? 21}/${simInput.diluent_he ?? 0}`
     const sorted = [...simInput.bailout_gases].sort((a, b) => a.mod_m - b.mod_m)
     const gas = sorted.find(g => frame.depth <= g.mod_m) ?? sorted[sorted.length - 1]
-    return gas ? `OC ${gas.o2}/${gas.he}` : 'OC 21/0'
+    return gas ? `${gas.o2}/${gas.he}` : '21/0'
   })()
 
   function fmtTime(t: number): string {
@@ -321,13 +321,90 @@ export default function DiveSimulator() {
 
       <div className="container pb-5">
         <div className="row g-3 align-items-start mt-1">
-          {/* Profile chart with time cursor */}
+          {/* Profile chart + controls */}
           <div className="col-lg-7">
             <div className="card">
               <div className="card-body">
-                <div style={{ height: 300, position: 'relative' }}>
+                <div
+                  style={{ height: 300, position: 'relative', cursor: 'crosshair' }}
+                  onClick={e => {
+                    const chart = chartRef.current
+                    if (!chart) return
+                    const rect = chart.canvas.getBoundingClientRect()
+                    const t = chart.scales.x.getValueForPixel(e.clientX - rect.left) ?? 0
+                    scrubTo(Math.max(0, Math.min(totalTime, t)))
+                  }}
+                  onTouchStart={e => {
+                    const chart = chartRef.current
+                    if (!chart) return
+                    const touch = e.touches[0]
+                    if (!touch) return
+                    const rect = chart.canvas.getBoundingClientRect()
+                    const t = chart.scales.x.getValueForPixel(touch.clientX - rect.left) ?? 0
+                    scrubTo(Math.max(0, Math.min(totalTime, t)))
+                  }}
+                  onTouchMove={e => {
+                    e.preventDefault()
+                    const chart = chartRef.current
+                    if (!chart) return
+                    const touch = e.touches[0]
+                    if (!touch) return
+                    const rect = chart.canvas.getBoundingClientRect()
+                    const t = chart.scales.x.getValueForPixel(touch.clientX - rect.left) ?? 0
+                    scrubTo(Math.max(0, Math.min(totalTime, t)))
+                  }}
+                >
                   <Line ref={chartRef} data={chartData} options={chartOptions} />
                 </div>
+
+                {/* Controls inside chart card */}
+                <div className="d-flex align-items-center flex-wrap gap-2 mt-3">
+                  <button
+                    className="btn btn-apply btn-sm"
+                    style={{ minWidth: '5.5rem' }}
+                    onClick={() => {
+                      if (frame.currentTime >= totalTime) scrubTo(0)
+                      setPlaying(p => !p)
+                    }}
+                  >
+                    <i className={`bi bi-${playing ? 'pause-fill' : 'play-fill'} me-1`} />
+                    {playing ? 'Pause' : 'Play'}
+                  </button>
+
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => scrubTo(0)}
+                    title="Reset"
+                  >
+                    <i className="bi bi-skip-backward-fill" />
+                  </button>
+
+                  <div className="btn-group btn-group-sm">
+                    {([60, 120, 300, 600] as const).map(s => (
+                      <button
+                        key={s}
+                        className={`btn ${speed === s ? 'btn-apply' : 'btn-outline-secondary'}`}
+                        onClick={() => setSpeed(s)}
+                      >
+                        {s}×
+                      </button>
+                    ))}
+                  </div>
+
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#555', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+                    {fmtTime(frame.currentTime)} / {fmtTime(totalTime)}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  className="form-range mt-2"
+                  min={0}
+                  max={totalTime}
+                  step={totalTime / 1000}
+                  value={frame.currentTime}
+                  onChange={e => scrubTo(parseFloat(e.target.value))}
+                />
               </div>
             </div>
           </div>
@@ -349,51 +426,6 @@ export default function DiveSimulator() {
               gasLabel={gasLabel}
               stopDepth={stopDepth}
               stopTime={stopTime}
-            />
-          </div>
-        </div>
-
-        {/* Playback controls */}
-        <div className="card mt-3">
-          <div className="card-body">
-            <div className="d-flex align-items-center flex-wrap gap-3">
-              <button
-                className="btn btn-apply"
-                style={{ minWidth: '7rem' }}
-                onClick={() => {
-                  if (frame.currentTime >= totalTime) scrubTo(0)
-                  setPlaying(p => !p)
-                }}
-              >
-                <i className={`bi bi-${playing ? 'pause-fill' : 'play-fill'} me-1`} />
-                {playing ? 'Pause' : 'Play'}
-              </button>
-
-              <div className="btn-group btn-group-sm">
-                {([60, 120, 300, 600] as const).map(s => (
-                  <button
-                    key={s}
-                    className={`btn ${speed === s ? 'btn-apply' : 'btn-outline-secondary'}`}
-                    onClick={() => setSpeed(s)}
-                  >
-                    {s}×
-                  </button>
-                ))}
-              </div>
-
-              <span style={{ fontFamily: 'monospace', fontSize: '0.88rem', color: '#555', whiteSpace: 'nowrap' }}>
-                {fmtTime(frame.currentTime)} / {fmtTime(totalTime)}
-              </span>
-            </div>
-
-            <input
-              type="range"
-              className="form-range mt-2"
-              min={0}
-              max={totalTime}
-              step={totalTime / 1000}
-              value={frame.currentTime}
-              onChange={e => scrubTo(parseFloat(e.target.value))}
             />
           </div>
         </div>
