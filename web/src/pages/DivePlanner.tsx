@@ -360,6 +360,7 @@ export default function DivePlanner() {
         asc_rate_deep_mpm: settings.ascRateDeep,
         asc_rate_shallow_mpm: settings.ascRateShallow,
         last_stop_m: settings.lastStopM,
+        travel_gas: diveMode === 'oc' ? (result.travel_gas ?? undefined) : undefined,
       } satisfies SimulatorInput,
     })
   }
@@ -911,6 +912,7 @@ export default function DivePlanner() {
               gfHigh={effectiveSettings.gfHigh}
               diluent={diveMode === 'oc' ? undefined : (activeGas ?? undefined)}
               ocBackGas={diveMode === 'oc' && bailoutInitialGas ? { o2: bailoutInitialGas.o2, he: bailoutInitialGas.he } : undefined}
+              ocTravelGas={diveMode === 'oc' ? (result.travel_gas ?? undefined) : undefined}
               depthM={depth}
               btMin={btActual}
               descRate={effectiveSettings.descRate}

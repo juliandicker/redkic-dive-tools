@@ -27,6 +27,7 @@ export interface DensityAnalysis {
   exceeded_limit: boolean
 }
 export interface GasSwitch { depth_m: number; label: string }
+export interface TravelGas { o2: number; he: number; switch_depth_m: number }
 export interface GasSupplyEntry {
   o2: number; he: number; mod_m: number
   consumed_L: number; available_L: number | null; pct: number | null
@@ -48,6 +49,7 @@ export interface DivePlannerResponse {
   density_analysis: DensityAnalysis
   gas_switches: GasSwitch[]
   gas_supply: GasSupplyEntry[] | null
+  travel_gas?: TravelGas
   bailout: BailoutPlan | null
   warnings: Warning[]
 }
@@ -94,4 +96,5 @@ export interface SimulatorInput {
   asc_rate_shallow_mpm: number
   last_stop_m: number
   bailoutAtMin?: number  // if set, mode switches from ccr→oc at this runtime
+  travel_gas?: TravelGas  // OC only — descent switch from travel gas to hypoxic back gas
 }
