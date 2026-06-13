@@ -45,6 +45,7 @@ interface PlanSectionProps {
   gfHigh: number
   diluent?: { o2: number; he: number; setpoint: number }
   ocBackGas?: { o2: number; he: number }
+  ocTravelGas?: { o2: number; he: number; switch_depth_m: number }
   depthM?: number
   btMin?: number
   descRate?: number
@@ -57,7 +58,7 @@ interface PlanSectionProps {
 export default function PlanSection({
   title, decoStops, totalTimeMin, ttsMin, cnsPct, otu,
   profilePoints, tissueSaturations, gasSwitches,
-  gasSupply, warnings, gfHigh, diluent, ocBackGas, depthM, btMin, descRate,
+  gasSupply, warnings, gfHigh, diluent, ocBackGas, ocTravelGas, depthM, btMin, descRate,
   isBailout, bailoutInitialGas, xAxisMax, onSimulate,
 }: PlanSectionProps) {
   const [hoveredSats, setHoveredSats] = useState<number[] | null>(null)
@@ -276,16 +277,57 @@ export default function PlanSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {/* CCR descent — shown for both CCR plan and bailout */}
-                    <tr style={isBailout ? { background: 'rgba(0,119,182,0.04)' } : {}}>
-                      <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
-                      <td>0→{depth}m</td>
-                      <td>{descTime}</td>
-                      <td>{descTime}</td>
-                      <td>{sp.toFixed(2)}</td>
-                      <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
-                      <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
-                    </tr>
+                    {/* Descent — split into travel-gas leg + switch + back-gas leg when travel gas is present */}
+                    {ocTravelGas ? (() => {
+                      const swD   = ocTravelGas.switch_depth_m
+                      const tTime = Math.round(swD / dRate)
+                      const bTime = descTime - tTime
+                      const tPpO2 = ((ocTravelGas.o2 / 100) * (swD / 10 + 1)).toFixed(2)
+                      const tDens = (surfaceDensity(ocTravelGas.o2, ocTravelGas.he) * (swD / 10 + 1)).toFixed(2)
+                      const swPpO2 = ((gO2 / 100) * (swD / 10 + 1)).toFixed(2)
+                      const swDens = (surfaceDensity(gO2, gHe) * (swD / 10 + 1)).toFixed(2)
+                      return (
+                        <>
+                          <tr>
+                            <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
+                            <td>0→{swD}m</td>
+                            <td>{tTime}</td>
+                            <td>{tTime}</td>
+                            <td>{tPpO2}</td>
+                            <td>{tDens}</td>
+                            <td style={{ fontSize: '0.78rem' }}>{gasName(ocTravelGas.o2, ocTravelGas.he)}</td>
+                          </tr>
+                          <tr style={{ borderTop: '2px solid #495057' }}>
+                            <td className="ps-2"><i className="bi bi-repeat" style={{ color: '#6c757d', fontSize: '0.8em' }} /></td>
+                            <td>{swD} m</td>
+                            <td>—</td>
+                            <td>{tTime}</td>
+                            <td>{swPpO2}</td>
+                            <td>{swDens}</td>
+                            <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                          </tr>
+                          <tr>
+                            <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
+                            <td>{swD}→{depth}m</td>
+                            <td>{bTime}</td>
+                            <td>{descTime}</td>
+                            <td>{sp.toFixed(2)}</td>
+                            <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                            <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                          </tr>
+                        </>
+                      )
+                    })() : (
+                      <tr style={isBailout ? { background: 'rgba(0,119,182,0.04)' } : {}}>
+                        <td className="ps-2"><i className="bi bi-arrow-down-circle" style={{ color: '#0077b6' }} /></td>
+                        <td>0→{depth}m</td>
+                        <td>{descTime}</td>
+                        <td>{descTime}</td>
+                        <td>{sp.toFixed(2)}</td>
+                        <td>{(surfaceDensity(gO2, gHe) * (depth / 10 + 1)).toFixed(2)}</td>
+                        <td style={{ fontSize: '0.78rem' }}>{gasName(gO2, gHe)}</td>
+                      </tr>
+                    )}
                     {/* CCR bottom */}
                     <tr style={isBailout ? { background: 'rgba(0,119,182,0.04)' } : {}}>
                       <td className="ps-2"><i className="bi bi-circle-fill" style={{ color: '#03045e', fontSize: '0.55em', verticalAlign: 'middle' }} /></td>
