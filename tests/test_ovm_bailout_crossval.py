@@ -4,7 +4,7 @@ Reference data recorded 2026-06-11 — see ovm_bailout_reference.py for settings
 
 Tolerances
 ----------
-  first stop depth : our first stop may be 0 or 3 m shallower than OVM's.
+  first stop depth : exact match expected; test allows up to 3 m shallower as a safety margin.
   stop depths      : exact match against the common stop-depth suffix.
   stop times       : ±3 min per stop.
   total runtime    : ±6 min.  Per-stop differences of ≤3 min compound across

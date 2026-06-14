@@ -8,14 +8,12 @@ differences.
 
 Tolerances
 ----------
-  first stop depth: ours may be 0 or 3 m shallower than OVM (one stop's worth).
-                    OVM uses a bottom-state ceiling snapshot; we integrate tissues
-                    step-by-step through the initial ascent, giving off-gassing
-                    credit that legitimately yields a shallower first stop.
-  stop depths      : when first stop is 3 m shallower, our stops match OVM's
-                    from OVM's second stop downward (same grid, one shorter list).
-  stop times       : ±3 min per stop (aligned to the common suffix of stops)
-  total runtime    : ±3 min
+  first stop depth: exact match expected (both planners anchor GF_Low at the
+                    ceiling computed from the bottom tissue state before ascent).
+                    The test allows up to 3 m shallower as a safety margin.
+  stop depths      : exact match against the common stop-depth suffix.
+  stop times       : ±3 min per stop.
+  total runtime    : ±3 min.
 """
 
 import pytest

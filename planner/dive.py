@@ -267,22 +267,22 @@ def _run_deco_ascent(
         runtime_min += seg_time
         current_depth = float(grid_depth)
 
-    # Walk up the grid until the ceiling catches us (= first deco stop).
-    # Record a profile point at each step so the chart shows the ceiling rising.
-    first_stop_depth = None
+    # Anchor GF_Low at the ceiling computed from the initial tissue state (before any ascent
+    # off-gassing). This is the standard Bühlmann GF convention: the GF gradient is fixed by
+    # where deco starts, not by how much off-gassing occurs during the ascent to that depth.
+    _initial_ceil = model.ceiling_m(gf_low)
+    first_stop_depth = max(last_stop_m, _round_up_to_3m(_initial_ceil)) if _initial_ceil > 0.0 else None
+
+    # Walk up to first_stop_depth (or surface for NDL), recording a profile point at each 3 m step.
     while True:
         ceiling = model.ceiling_m(gf_low)
         rec(current_depth, ceiling)
-        if ceiling > 0.0 and _round_up_to_3m(ceiling) >= current_depth:
-            first_stop_depth = max(last_stop_m, int(current_depth))
+        target = float(first_stop_depth) if first_stop_depth is not None else 0.0
+        if current_depth <= target + 0.01:
             break
-        if current_depth <= last_stop_m:
-            if ceiling > 0.0:
-                first_stop_depth = last_stop_m
-            break
-        next_depth = current_depth - 3.0
+        next_depth = max(target, current_depth - 3.0)
         next_gas = gas_at_depth(next_depth)
-        seg_time = 3.0 / asc_rate(current_depth)
+        seg_time = (current_depth - next_depth) / asc_rate(current_depth)
         model.load_segment(_cur_gas, current_depth, next_depth, seg_time)
         runtime_min += seg_time
         current_depth = next_depth
@@ -398,19 +398,14 @@ def _project_tts(inert, depth_m, gf_low, gf_high, gas_at_depth, asc_rate_deep_mp
         time += seg
         current_depth = float(grid_depth)
 
-    # Walk up to find first stop (or surface if NDL)
-    first_stop_depth = None
-    while True:
-        ceiling = model.ceiling_m(gf_low)
-        if ceiling > 0.0 and _round_up_to_3m(ceiling) >= current_depth:
-            first_stop_depth = max(last_stop_m, int(current_depth))
-            break
-        if current_depth <= last_stop_m:
-            if ceiling > 0.0:
-                first_stop_depth = last_stop_m
-            break
-        next_depth = current_depth - 3.0
-        seg = 3.0 / asc_rate(current_depth)
+    # Same first_stop anchoring as _run_deco_ascent: use initial ceiling before ascent.
+    _initial_ceil = model.ceiling_m(gf_low)
+    first_stop_depth = max(last_stop_m, _round_up_to_3m(_initial_ceil)) if _initial_ceil > 0.0 else None
+
+    target = float(first_stop_depth) if first_stop_depth is not None else 0.0
+    while current_depth > target + 0.01:
+        next_depth = max(target, current_depth - 3.0)
+        seg = (current_depth - next_depth) / asc_rate(current_depth)
         next_gas = gas_at_depth(next_depth)
         model.load_segment(_cur_gas, current_depth, next_depth, seg)
         time += seg
@@ -457,9 +452,10 @@ def _annotate_tts(profile_points, total_time_min, gf_low, gf_high, gas_at_depth,
     """Annotate each profile point with TTS (minutes).
 
     Bottom-phase points use a forward projection from the current tissue state
-    so TTS rises as tissues load — the key teaching behaviour. Ascent/deco-phase
-    points use remaining plan time, which is self-consistent with the planner's
-    own GF gradient and stop schedule.
+    so TTS rises as tissues load — the key teaching behaviour. Deco-ascent points
+    use remaining plan time, which is self-consistent with the planner's own GF
+    gradient and stop schedule. Descent/NDL points use simple ascent time (no deco
+    obligation, so ascent time is purely depth / rate).
     """
     max_depth = max((pt['d'] for pt in profile_points), default=0)
     for pt in profile_points:
@@ -470,8 +466,23 @@ def _annotate_tts(profile_points, total_time_min, gf_low, gf_high, gas_at_depth,
                 pt['inert'], pt['d'], gf_low, gf_high, gas_at_depth,
                 asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m,
             )
-        else:
+        elif pt['c'] > 0:
             pt['tts'] = round(max(0.0, total_time_min - pt['t']), 1)
+        else:
+            shallow = min(pt['d'], 6.0)
+            deep = max(0.0, pt['d'] - 6.0)
+            pt['tts'] = round(deep / asc_rate_deep_mpm + shallow / asc_rate_shallow_mpm, 1)
+
+
+def _annotate_ndl(profile_points):
+    """Annotate each profile point with NDL (min): time remaining before deco starts."""
+    ndl_expiry = 0.0
+    for pt in profile_points:
+        if pt['c'] > 0:
+            break
+        ndl_expiry = pt['t']
+    for pt in profile_points:
+        pt['ndl'] = round(max(0.0, ndl_expiry - pt['t']), 1)
 
 
 def plan_ccr_dive(
@@ -509,6 +520,7 @@ def plan_ccr_dive(
     profile.gas_switches = gas_switches
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, lambda _: gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
+    _annotate_ndl(profile.profile_points)
     _annotate_physics(
         profile.profile_points,
         ppO2_at_depth=lambda d, _i: min(gas.setpoint, max(0.0, d / 10.0 + SURFACE_BAR - WATER_VAPOUR_BAR)),
@@ -577,6 +589,7 @@ def plan_oc_dive(
 
     _annotate_tts(profile.profile_points, profile.total_time_min, gf_low, gf_high, _select_gas,
                   asc_rate_deep_mpm, asc_rate_shallow_mpm, last_stop_m)
+    _annotate_ndl(profile.profile_points)
 
     # Assign the correct gas to each profile point for ppO2/density annotation:
     # travel gas during pre-switch descent (if any), back gas during the remaining
