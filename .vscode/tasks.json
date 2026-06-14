@@ -31,7 +31,10 @@
 		{
 			"label": "serve: website",
 			"type": "shell",
-			"command": "python -m http.server 8080 --directory web",
+			"command": "npm run dev",
+			"options": {
+				"cwd": "${workspaceFolder}/web"
+			},
 			"isBackground": true,
 			"problemMatcher": {
 				"pattern": {
@@ -39,7 +42,7 @@
 				},
 				"background": {
 					"activeOnStart": true,
-					"beginsPattern": "^Serving HTTP",
+					"beginsPattern": "VITE",
 					"endsPattern": "^$"
 				}
 			}

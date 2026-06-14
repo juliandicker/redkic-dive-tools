@@ -20,7 +20,7 @@ export interface TrimixBlendResponse {
 
 export interface Warning { level: string; message: string }
 export interface DecoStop { depth_m: number; time_min: number; runtime_min: number }
-export interface ProfilePoint { t: number; d: number; c: number; sats: number[]; inert?: [number, number][]; tts?: number; gf99?: number; ppO2?: number; cns?: number; otu?: number; density_gl?: number; gas_o2?: number; gas_he?: number }
+export interface ProfilePoint { t: number; d: number; c: number; sats: number[]; inert?: [number, number][]; tts?: number; gf99?: number; ppO2?: number; cns?: number; otu?: number; density_gl?: number; gas_o2?: number; gas_he?: number; ndl?: number }
 export interface DensityAnalysis {
   density_gl: number
   exceeded_recommended: boolean
@@ -76,7 +76,7 @@ export interface SavedPlan {
   mode?: 'ccr' | 'oc'
   gas?: { o2: number; he: number; setpoint: number }
   depth_m: number; bottom_time_min: number
-  bailout_gases?: { o2: number; he: number; cyl_l?: number; cyl_bar?: number; mod_m?: number }[]
+  gases?: { o2: number; he: number; cyl_l?: number; cyl_bar?: number; mod_m?: number }[]
 }
 
 // ── Dive Simulator ─────────────────────────────────────────────────────────────
@@ -92,8 +92,5 @@ export interface SimulatorInput {
   diluent_he?: number
   gas_switches: GasSwitch[]
   bailout_gases: { o2: number; he: number; mod_m: number }[]
-  asc_rate_deep_mpm: number
-  asc_rate_shallow_mpm: number
-  last_stop_m: number
   bailoutAtMin?: number  // if set, mode switches from ccr→oc at this runtime
 }

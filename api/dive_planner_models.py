@@ -101,6 +101,7 @@ class ProfilePoint(BaseModel):
     density_gl: Optional[float] = Field(default=None, description="Gas density (g/L)")
     gas_o2: Optional[int] = Field(default=None, description="Gas O₂ % breathed at this point")
     gas_he: Optional[int] = Field(default=None, description="Gas He % breathed at this point")
+    ndl: Optional[float] = Field(default=None, description="No-decompression limit (min) — time remaining before deco starts")
 
 
 class GasSwitch(BaseModel):

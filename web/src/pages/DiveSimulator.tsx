@@ -14,12 +14,12 @@ import type { ProfilePoint, SimulatorInput } from '../types'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 function interpolateProfile(pts: ProfilePoint[], t: number) {
-  const empty = { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0, ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0 }
+  const empty = { depth: 0, ceiling: 0, sats: new Array(16).fill(0) as number[], tts: 0, ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0, ndl: 0 }
   if (!pts.length) return empty
   const first = pts[0]
-  if (t <= first.t) return { depth: first.d, ceiling: first.c, sats: [...first.sats], tts: first.tts ?? 0, ppO2: first.ppO2 ?? 0, cns: first.cns ?? 0, otu: first.otu ?? 0, gf99: first.gf99 ?? 0, densityGl: first.density_gl ?? 0 }
+  if (t <= first.t) return { depth: first.d, ceiling: first.c, sats: [...first.sats], tts: first.tts ?? 0, ppO2: first.ppO2 ?? 0, cns: first.cns ?? 0, otu: first.otu ?? 0, gf99: first.gf99 ?? 0, densityGl: first.density_gl ?? 0, ndl: first.ndl ?? 0 }
   const last = pts[pts.length - 1]
-  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0, ppO2: last.ppO2 ?? 0, cns: last.cns ?? 0, otu: last.otu ?? 0, gf99: last.gf99 ?? 0, densityGl: last.density_gl ?? 0 }
+  if (t >= last.t) return { depth: last.d, ceiling: last.c, sats: [...last.sats], tts: 0, ppO2: last.ppO2 ?? 0, cns: last.cns ?? 0, otu: last.otu ?? 0, gf99: last.gf99 ?? 0, densityGl: last.density_gl ?? 0, ndl: 0 }
   let lo = 0, hi = pts.length - 1
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1
@@ -38,6 +38,7 @@ function interpolateProfile(pts: ProfilePoint[], t: number) {
     otu:       lerp(p0.otu ?? 0, p1.otu ?? 0),
     gf99:      lerp(p0.gf99 ?? 0, p1.gf99 ?? 0),
     densityGl: lerp(p0.density_gl ?? 0, p1.density_gl ?? 0),
+    ndl:       Math.max(0, lerp(p0.ndl ?? 0, p1.ndl ?? 0)),
   }
 }
 
@@ -59,6 +60,7 @@ interface SimulatorFrame {
   gf99: number
   densityGl: number
   tts: number
+  ndl: number
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -71,19 +73,10 @@ export default function DiveSimulator() {
   const totalTime = pts.length ? pts[pts.length - 1].t : 1
   const maxDepth = pts.length ? Math.max(...pts.map(p => p.d)) + 5 : 50
 
-  const ndlExpiry = useMemo(() => {
-    let lastZeroT = pts[0]?.t ?? 0
-    for (const p of pts) {
-      if (p.c > 0) return lastZeroT
-      lastZeroT = p.t
-    }
-    return totalTime
-  }, [pts, totalTime])
-
   const [frame, setFrame] = useState<SimulatorFrame>({
     currentTime: 0, depth: 0, ceiling: 0,
     sats: new Array(16).fill(0),
-    ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0, tts: 0,
+    ppO2: 0, cns: 0, otu: 0, gf99: 0, densityGl: 0, tts: 0, ndl: 0,
   })
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(60)
@@ -187,28 +180,10 @@ export default function DiveSimulator() {
 
   if (!simInput) return null
 
-  const inDeco = frame.ceiling > 0
-  const ndl = Math.max(0, ndlExpiry - frame.currentTime)
-
-  // TTS: simple ascent time when no deco obligation; remaining plan time when in deco
-  const displayTts = (() => {
-    if (!inDeco) {
-      const d = frame.depth
-      if (d <= 0) return 0
-      const shallow = Math.min(d, 6)
-      const deep = Math.max(0, d - 6)
-      return deep / simInput.asc_rate_deep_mpm + shallow / simInput.asc_rate_shallow_mpm
-    }
-    return frame.tts
-  })()
-
-  // STOP depth: raw ceiling rounded up to next 3 m grid
-  const stopDepth = inDeco ? Math.ceil(frame.ceiling / 3) * 3 : 0
-
-  // STOP time: remaining time at the current/next stop
   const nextStop = simInput.stops.find(s => s.runtime_min > frame.currentTime) ?? null
+  const stopDepth = nextStop?.depth_m ?? 0
   const stopTime = (() => {
-    if (!inDeco || !nextStop) return 0
+    if (!nextStop) return 0
     const stopStart = nextStop.runtime_min - nextStop.time_min
     if (frame.currentTime >= stopStart) {
       return Math.ceil(Math.max(0, nextStop.runtime_min - frame.currentTime))
@@ -354,8 +329,8 @@ export default function DiveSimulator() {
               ppO2={frame.ppO2}
               cns={frame.cns}
               otu={frame.otu}
-              tts={displayTts}
-              ndl={ndl}
+              tts={frame.tts}
+              ndl={frame.ndl}
               sats={frame.sats}
               mode={currentMode}
               setpoint={simInput.setpoint}

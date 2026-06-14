@@ -46,11 +46,11 @@ const DEFAULT_GASES: Omit<GasEntry, 'id'>[] = [
   { o2: 21, he: 25, setpoint: 1.3, active: false },
 ]
 const DEFAULT_CCR_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
-  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  11, cyl_bar: 200, active: false },
-  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  11, cyl_bar: 207, active: false },
-  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l:  11, cyl_bar: 207, active: false },
-  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l:  11, cyl_bar: 207, active: false },
-  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l:  11, cyl_bar: 207, active: false },
+  { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l:  11, cyl_bar: 210, active: false },
+  { o2: 80,  he: 0,  ppo2_limit: 1.6, mod_m:  9, cyl_l:  11, cyl_bar: 210, active: false },
+  { o2: 60,  he: 0,  ppo2_limit: 1.4, mod_m: 13, cyl_l:  11, cyl_bar: 210, active: false },
+  { o2: 50,  he: 0,  ppo2_limit: 1.4, mod_m: 18, cyl_l:  11, cyl_bar: 210, active: false },
+  { o2: 21,  he: 35, ppo2_limit: 1.4, mod_m: 54, cyl_l:  11, cyl_bar: 210, active: false },
 ]
 const DEFAULT_OC_BAILOUT: Omit<BailoutEntry, 'id'>[] = [
   { o2: 100, he: 0,  ppo2_limit: 1.6, mod_m:  6, cyl_l: 11, cyl_bar: 210, active: false },
@@ -71,29 +71,29 @@ const DEFAULT_SETTINGS: PlannerSettings = {
 const EXAMPLE_PLANS: Omit<SavedPlan, 'id' | 'created_at'>[] = [
   // CCR examples
   { mode: 'ccr', name: 'Shallow Reef', gas: { o2: 21, he: 0, setpoint: 1.3 }, depth_m: 20, bottom_time_min: 45,
-    bailout_gases: [{ o2: 21, he: 0 }] },
+    gases: [{ o2: 21, he: 0 }] },
   { mode: 'ccr', name: 'Wreck Dive',   gas: { o2: 21, he: 35, setpoint: 1.3 }, depth_m: 40, bottom_time_min: 25,
-    bailout_gases: [{ o2: 50, he: 0 }, { o2: 21, he: 25 }] },
+    gases: [{ o2: 50, he: 0 }, { o2: 21, he: 25 }] },
   { mode: 'ccr', name: 'Trimix Dive',  gas: { o2: 16, he: 70, setpoint: 1.3 }, depth_m: 60, bottom_time_min: 20,
-    bailout_gases: [{ o2: 50, he: 0 }, { o2: 20, he: 55 }] },
+    gases: [{ o2: 50, he: 0 }, { o2: 20, he: 55 }] },
   { mode: 'ccr', name: 'Deep Trimix Dive', gas: { o2: 12, he: 75, setpoint: 1.3 }, depth_m: 100, bottom_time_min: 15,
-    bailout_gases: [{ o2: 80, he: 0 }, { o2: 50, he: 0 }, { o2: 20, he: 55 }, { o2: 13, he: 75 }] },
+    gases: [{ o2: 80, he: 0 }, { o2: 50, he: 0 }, { o2: 20, he: 55 }, { o2: 13, he: 75 }] },
   // OC examples
   { mode: 'oc', name: 'Shallow Reef (OC)', depth_m: 20, bottom_time_min: 40,
-    bailout_gases: [{ o2: 21, he: 0, cyl_l: 12, cyl_bar: 232, mod_m: 54 }] },
+    gases: [{ o2: 21, he: 0, cyl_l: 12, cyl_bar: 232, mod_m: 54 }] },
   { mode: 'oc', name: 'Wreck Dive (OC)', depth_m: 40, bottom_time_min: 45,
-    bailout_gases: [
+    gases: [
       { o2: 21, he: 0,  cyl_l: 24, cyl_bar: 232, mod_m: 54 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
     ] },
   { mode: 'oc', name: 'Trimix (OC)', depth_m: 60, bottom_time_min: 25,
-    bailout_gases: [
+    gases: [
       { o2: 20, he: 55, cyl_l: 24, cyl_bar: 232, mod_m: 57 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
       { o2: 80, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m:  9 },
     ] },
   { mode: 'oc', name: 'Deep Trimix (OC)', depth_m: 100, bottom_time_min: 15,
-    bailout_gases: [
+    gases: [
       { o2: 10, he: 75, cyl_l: 24, cyl_bar: 232, mod_m: 96 },
       { o2: 21, he: 35, cyl_l: 12, cyl_bar: 232, mod_m: 54 },
       { o2: 50, he: 0,  cyl_l: 11, cyl_bar: 210, mod_m: 18 },
@@ -275,12 +275,15 @@ export default function DivePlanner() {
       }))
     : activeBailout
 
-  // Gas used at bailout depth — lowest-MOD bailout gas whose MOD covers the depth
-  const bailoutInitialGas = useMemo(() => {
-    if (effectiveBailout.length === 0) return null
-    const sorted = [...effectiveBailout].sort((a, b) => a.mod_m - b.mod_m)
-    return (sorted.find(g => depth <= g.mod_m) ?? sorted[sorted.length - 1])
-  }, [effectiveBailout, depth])
+  const backGas = useMemo(() => {
+    const pt = result?.profile_points?.find(p => p.d >= depth - 0.1)
+    return pt?.gas_o2 != null ? { o2: pt.gas_o2, he: pt.gas_he ?? 0 } : null
+  }, [result, depth])
+
+  const bailoutBackGas = useMemo(() => {
+    const pt = result?.bailout?.profile_points?.find(p => p.d >= depth - 0.1)
+    return pt?.gas_o2 != null ? { o2: pt.gas_o2, he: pt.gas_he ?? 0 } : null
+  }, [result, depth])
 
   // Shared X axis max so CCR and bailout charts align
   const btActual = result?.bottom_time_actual ?? bt
@@ -357,9 +360,6 @@ export default function DivePlanner() {
         diluent_he: diveMode === 'ccr' ? activeGas?.he : undefined,
         gas_switches: result.gas_switches ?? [],
         bailout_gases: effectiveBailout.map(g => ({ o2: g.o2, he: g.he, mod_m: g.mod_m })),
-        asc_rate_deep_mpm: settings.ascRateDeep,
-        asc_rate_shallow_mpm: settings.ascRateShallow,
-        last_stop_m: settings.lastStopM,
       } satisfies SimulatorInput,
     })
   }
@@ -384,9 +384,6 @@ export default function DivePlanner() {
         diluent_he: activeGas?.he,
         gas_switches: result.bailout.gas_switches ?? [],
         bailout_gases: effectiveBailout.map(g => ({ o2: g.o2, he: g.he, mod_m: g.mod_m })),
-        asc_rate_deep_mpm: settings.ascRateDeep,
-        asc_rate_shallow_mpm: settings.ascRateShallow,
-        last_stop_m: settings.lastStopM,
         bailoutAtMin: btActual,
       } satisfies SimulatorInput,
     })
@@ -517,7 +514,7 @@ export default function DivePlanner() {
         mode: diveMode,
         gas: diveMode === 'ccr' ? { o2: activeGas!.o2, he: activeGas!.he, setpoint: activeGas!.setpoint } : undefined,
         depth_m: depth, bottom_time_min: bt,
-        bailout_gases: activeBailout.map(({ o2, he, cyl_l, cyl_bar, mod_m }) => ({ o2, he, cyl_l, cyl_bar, mod_m })),
+        gases: activeBailout.map(({ o2, he, cyl_l, cyl_bar, mod_m }) => ({ o2, he, cyl_l, cyl_bar, mod_m })),
       },
     })
   }
@@ -557,8 +554,8 @@ export default function DivePlanner() {
       }
     }
 
-    if (plan.bailout_gases) {
-      const wanted = plan.bailout_gases
+    if (plan.gases) {
+      const wanted = plan.gases
       const targetLib    = planMode === 'ccr' ? ccrBailoutLib    : ocBailoutLib
       const setLib       = planMode === 'ccr' ? setCcrBailoutLib : setOcBailoutLib
       const setNextId    = planMode === 'ccr' ? setCcrBailoutNextId : setOcBailoutNextId
@@ -678,11 +675,11 @@ export default function DivePlanner() {
             setGasNextId(newId + 1)
           }
         }
-        if (Array.isArray(s.bailout_gases) && s.bailout_gases.length > 0) {
+        if (Array.isArray(s.gases) && s.gases.length > 0) {
           const setLib     = importMode === 'ccr' ? setCcrBailoutLib : setOcBailoutLib
           const setNextId  = importMode === 'ccr' ? setCcrBailoutNextId : setOcBailoutNextId
           let nextId = importMode === 'ccr' ? ccrBailoutNextId : ocBailoutNextId
-          const imported: BailoutEntry[] = s.bailout_gases.map((bg: { o2: number; he: number; mod_m?: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => {
+          const imported: BailoutEntry[] = s.gases.map((bg: { o2: number; he: number; mod_m?: number; ppo2_limit?: number; cyl_l?: number; cyl_bar?: number }) => {
             const ppo2Lim = bg.ppo2_limit ?? 1.4
             return {
               id: nextId++,
@@ -910,7 +907,7 @@ export default function DivePlanner() {
               warnings={result.warnings}
               gfHigh={effectiveSettings.gfHigh}
               diluent={diveMode === 'oc' ? undefined : (activeGas ?? undefined)}
-              ocBackGas={diveMode === 'oc' && bailoutInitialGas ? { o2: bailoutInitialGas.o2, he: bailoutInitialGas.he } : undefined}
+              ocBackGas={diveMode === 'oc' ? (backGas ?? undefined) : undefined}
               ocTravelGas={diveMode === 'oc' ? (result.travel_gas ?? undefined) : undefined}
               depthM={depth}
               btMin={btActual}
@@ -939,7 +936,7 @@ export default function DivePlanner() {
                   btMin={btActual}
                   descRate={effectiveSettings.descRate}
                   isBailout
-                  bailoutInitialGas={bailoutInitialGas}
+                  bailoutInitialGas={bailoutBackGas}
                   xAxisMax={sharedXMax}
                   onSimulate={handleBailoutSimulate}
                 />
