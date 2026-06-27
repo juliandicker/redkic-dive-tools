@@ -7,13 +7,13 @@ from api.trimix import router as trimix_router
 from api.dive_planner import router as deco_router
 
 fastapi_app = FastAPI(
-    title="GasBlender API",
+    title="Redkic Dive Tools API",
     description=(
         "Technical diving tools: trimix fill-sequence calculator and "
         "CCR decompression planner (Bühlmann ZHL-16C with gradient factors)."
     ),
     version="1.0.0",
-    contact={"name": "GasBlender", "url": "https://gasblender.redkic.co.uk"},
+    contact={"name": "Redkic Dive Tools", "url": "https://gasblender.redkic.co.uk"},
 )
 
 

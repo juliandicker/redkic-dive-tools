@@ -3,7 +3,7 @@ from function_app import fastapi_app
 
 def test_openapi_schema_generated():
     schema = fastapi_app.openapi()
-    assert schema["info"]["title"] == "GasBlender API"
+    assert schema["info"]["title"] == "Redkic Dive Tools API"
     assert schema["info"]["version"] == "1.0.0"
 
 

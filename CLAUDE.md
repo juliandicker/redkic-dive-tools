@@ -1,4 +1,4 @@
-# GasBlender — Claude guidance
+# Redkic Dive Tools — Claude guidance
 
 ## Project overview
 

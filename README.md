@@ -1,4 +1,4 @@
-# GasBlender
+# Redkic Dive Tools
 
 Three tools for technical diving, built on Python Azure Functions and a React/Vite frontend hosted on Azure Static Web Apps.
 

@@ -131,7 +131,7 @@ export default function About() {
                       Validate any plan with your approved dive planning software or dive computer before
                       getting in the water. Bugs and suggestions welcome via{' '}
                       <a
-                        href="https://github.com/juliandicker/GasBlender/issues"
+                        href="https://github.com/juliandicker/redkic-dive-tools/issues"
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: 'var(--aqua)' }}
