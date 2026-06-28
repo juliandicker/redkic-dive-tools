@@ -65,6 +65,25 @@ module swaDomain 'modules/swa-domain.bicep' = {
   dependsOn: [dns]
 }
 
+module gasblenderDns 'modules/dns.bicep' = {
+  name: 'gasblender-dns-deploy'
+  scope: resourceGroup(dnsSubscriptionId, dnsResourceGroupName)
+  params: {
+    targetHostname: swa.outputs.defaultHostname
+    subDomainLabel: 'gasblender'
+  }
+}
+
+module gasblenderSwaDomain 'modules/swa-domain.bicep' = {
+  name: 'gasblender-swa-domain-deploy'
+  scope: rg
+  params: {
+    staticWebAppName: swa.outputs.staticWebAppName
+    customDomainHostname: 'gasblender.redkic.co.uk'
+  }
+  dependsOn: [gasblenderDns]
+}
+
 output storageAccountName string = storage.outputs.storageAccountName
 output functionAppName string = app.outputs.functionAppName
 output staticWebAppName string = swa.outputs.staticWebAppName
