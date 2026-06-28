@@ -46,6 +46,7 @@ jobs:
       storageAccountName: ${{ steps.bicep.outputs.storageAccountName }}
       functionAppName: ${{ steps.bicep.outputs.functionAppName }}
       staticWebAppName: ${{ steps.bicep.outputs.staticWebAppName }}
+      deployedResourceGroupName: ${{ steps.bicep.outputs.deployedResourceGroupName }}
     steps:
       - uses: actions/checkout@v6
 
@@ -67,6 +68,7 @@ jobs:
           echo "storageAccountName=$(echo $output | jq -r '.storageAccountName.value')" >> $GITHUB_OUTPUT
           echo "functionAppName=$(echo $output | jq -r '.functionAppName.value')" >> $GITHUB_OUTPUT
           echo "staticWebAppName=$(echo $output | jq -r '.staticWebAppName.value')" >> $GITHUB_OUTPUT
+          echo "deployedResourceGroupName=$(echo $output | jq -r '.deployedResourceGroupName.value')" >> $GITHUB_OUTPUT
 
   deploy-function:
     name: Deploy Function App
@@ -107,6 +109,8 @@ jobs:
       - name: Build frontend
         working-directory: web
         run: npm ci && npm run build
+        env:
+          VITE_API_BASE_URL: https://${{ needs.infra.outputs.functionAppName }}.azurewebsites.net
 
       - uses: azure/login@v3
         with:
@@ -119,7 +123,7 @@ jobs:
         run: |
           token=$(az staticwebapp secrets list \
             --name ${{ needs.infra.outputs.staticWebAppName }} \
-            --resource-group rg-gasblender-prod \
+            --resource-group ${{ needs.infra.outputs.deployedResourceGroupName }} \
             --query 'properties.apiKey' -o tsv)
           echo "token=$token" >> $GITHUB_OUTPUT
 

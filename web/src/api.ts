@@ -1,11 +1,11 @@
 import type { TrimixBlendResponse, DivePlannerResponse } from './types'
 
 const LOCAL = 'http://localhost:7071'
-const PROD  = 'https://gasblender-tcif7s.azurewebsites.net'
 
 function base(): string {
   const h = window.location.hostname
-  return (h === 'localhost' || h === '127.0.0.1' || h === '') ? LOCAL : PROD
+  if (h === 'localhost' || h === '127.0.0.1' || h === '') return LOCAL
+  return import.meta.env.VITE_API_BASE_URL ?? LOCAL
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {

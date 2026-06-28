@@ -6,7 +6,8 @@ param environment string = 'prod'
 param resourceGroupName string = 'rg-gasblender-prod'
 param dnsSubscriptionId string
 param dnsResourceGroupName string = 'rg-dns-services-shared-001'
-param customDomainHostname string = 'gasblender.redkic.co.uk'
+param customDomainHostname string = 'divetools.redkic.co.uk'
+param subDomainLabel string = 'divetools'
 
 resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
   name: resourceGroupName
@@ -50,6 +51,7 @@ module dns 'modules/dns.bicep' = {
   scope: resourceGroup(dnsSubscriptionId, dnsResourceGroupName)
   params: {
     targetHostname: swa.outputs.defaultHostname
+    subDomainLabel: subDomainLabel
   }
 }
 
@@ -66,3 +68,4 @@ module swaDomain 'modules/swa-domain.bicep' = {
 output storageAccountName string = storage.outputs.storageAccountName
 output functionAppName string = app.outputs.functionAppName
 output staticWebAppName string = swa.outputs.staticWebAppName
+output deployedResourceGroupName string = rg.name
