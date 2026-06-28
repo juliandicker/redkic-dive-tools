@@ -2,6 +2,17 @@
 
 Three tools for technical diving, built on Python Azure Functions and a React/Vite frontend hosted on Azure Static Web Apps.
 
+<table>
+  <tr>
+    <td><img src="images/gas_blend.png" alt="Gas Blender — trimix fill-sequence calculator"/><br/><sub><b>Gas Blender</b> — He → O₂ → air fill-sequence calculator with gas analysis</sub></td>
+    <td><img src="images/dive_plan.png" alt="Dive Planner — Bühlmann ZHL-16C decompression planner"/><br/><sub><b>Dive Planner</b> — Bühlmann ZHL-16C CCR/OC deco planner with tissue saturation chart</sub></td>
+  </tr>
+  <tr>
+    <td><img src="images/dive_sim.png" alt="Dive Simulator — Shearwater-style dive computer playback"/><br/><sub><b>Dive Simulator</b> — Shearwater-style dive computer playback with live tissue loading</sub></td>
+    <td><img src="images/m_values.png" alt="M-value diagram — all 16 tissue compartments plotted against ambient pressure"/><br/><sub><b>M-value diagram</b> — all 16 ZHL-16C compartments plotted against ambient pressure</sub></td>
+  </tr>
+</table>
+
 | Tool | Description |
 |------|-------------|
 | **Gas Blender** | Trimix fill-sequence calculator — given a start cylinder and target mix, computes He → O₂ → air top-up steps |
