@@ -48,6 +48,7 @@ GasBlender/
 ├── infra/
 │   ├── main.bicep          # Subscription-scoped Bicep — resource group + all resources
 │   ├── main.bicepparam
+│   ├── bootstrap-oidc.ps1  # Idempotent OIDC/SP setup for new subscriptions
 │   └── modules/            # storage, functionApp, staticWebApp, swa-domain, dns
 ├── web/                    # React/Vite frontend (TypeScript)
 │   ├── src/
@@ -73,12 +74,12 @@ Deployment is fully automated via GitHub Actions — push to `main` to deploy.
 
 | Component | Azure service | URL |
 |-----------|--------------|-----|
-| Gas Blender API | Azure Function App (Flex Consumption) | `https://gasblender-tcif7s.azurewebsites.net/api/TrimixBlend` |
-| Dive Planner API | Azure Function App (Flex Consumption) | `https://gasblender-tcif7s.azurewebsites.net/api/DivePlanner` |
-| Swagger UI | Azure Function App | `https://gasblender-tcif7s.azurewebsites.net/docs` |
-| ReDoc | Azure Function App | `https://gasblender-tcif7s.azurewebsites.net/redoc` |
-| OpenAPI schema | Azure Function App | `https://gasblender-tcif7s.azurewebsites.net/openapi.json` |
-| Frontend | Azure Static Web Apps (Free) | [https://gasblender.redkic.co.uk/](https://gasblender.redkic.co.uk/) |
+| Gas Blender API | Azure Function App (Flex Consumption) | `https://gasblender-4wzu5n.azurewebsites.net/api/TrimixBlend` |
+| Dive Planner API | Azure Function App (Flex Consumption) | `https://gasblender-4wzu5n.azurewebsites.net/api/DivePlanner` |
+| Swagger UI | Azure Function App | `https://gasblender-4wzu5n.azurewebsites.net/docs` |
+| ReDoc | Azure Function App | `https://gasblender-4wzu5n.azurewebsites.net/redoc` |
+| OpenAPI schema | Azure Function App | `https://gasblender-4wzu5n.azurewebsites.net/openapi.json` |
+| Frontend | Azure Static Web Apps (Free) | [https://divetools.redkic.co.uk/](https://divetools.redkic.co.uk/) |
 
 Infrastructure is defined in `infra/` as Bicep (subscription-scoped) and deployed via GitHub Actions on every push to `main`.
 
