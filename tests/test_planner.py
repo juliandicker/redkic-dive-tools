@@ -4,7 +4,7 @@ from gas_blender import gas_density
 from planner.gas import CCRGas, OpenCircuitGas
 from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive, DiveProfile
 from planner.buhlmann import WATER_VAPOUR_BAR, SURFACE_BAR
-from DivePlanner import _binary_search_bottom_time, _compute_gas_consumption
+from api.dive_planner_builders import _binary_search_bottom_time, _compute_gas_consumption
 
 
 class TestPlannerStructure:

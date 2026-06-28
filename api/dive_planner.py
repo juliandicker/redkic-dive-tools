@@ -7,12 +7,7 @@ from fastapi import APIRouter, HTTPException
 from gas_blender import gas_density
 from planner.dive import plan_ccr_dive, plan_oc_bailout, plan_oc_dive
 from planner.gas import CCRGas, OpenCircuitGas
-from DivePlanner import (
-    _binary_search_bottom_time,
-    _cns_rate,
-    _oc_cns_otu,
-    _otu_rate,
-)
+from planner.buhlmann import _cns_rate, _oc_cns_otu, _otu_rate
 from api.dive_planner_models import (
     BailoutPlan,
     DensityAnalysis,
@@ -23,7 +18,7 @@ from api.dive_planner_models import (
     Warning,
 )
 from api.dive_planner_warnings import PlanWarnings
-from api.dive_planner_builders import build_deco_stops, build_gas_supply, build_profile_points
+from api.dive_planner_builders import _binary_search_bottom_time, build_deco_stops, build_gas_supply, build_profile_points
 
 router = APIRouter()
 

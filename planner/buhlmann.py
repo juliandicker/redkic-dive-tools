@@ -105,3 +105,64 @@ class BuhlmannModel:
 
     def copy(self):
         return copy.deepcopy(self)
+
+
+# NOAA single-dive CNS table: (ppO2, % per minute)
+_CNS_TABLE = [
+    (0.50, 0.0),
+    (0.60, 100 / 720),
+    (0.70, 100 / 570),
+    (0.80, 100 / 450),
+    (0.90, 100 / 360),
+    (1.00, 100 / 300),
+    (1.10, 100 / 270),
+    (1.20, 100 / 240),
+    (1.30, 100 / 210),
+    (1.40, 100 / 180),
+    (1.50, 100 / 150),
+    (1.60, 100 / 120),
+]
+
+
+def _cns_rate(ppo2):
+    if ppo2 <= 0.5:
+        return 0.0
+    if ppo2 >= 1.6:
+        return 100 / 120
+    for i in range(len(_CNS_TABLE) - 1):
+        p0, r0 = _CNS_TABLE[i]
+        p1, r1 = _CNS_TABLE[i + 1]
+        if p0 <= ppo2 <= p1:
+            return r0 + (ppo2 - p0) / (p1 - p0) * (r1 - r0)
+    return 0.0
+
+
+def _otu_rate(ppo2):
+    if ppo2 <= 0.5:
+        return 0.0
+    return ((ppo2 - 0.5) / 0.5) ** (5 / 6)
+
+
+def _oc_cns_otu(profile, sorted_gases):
+    """Integrate CNS% and OTU over an OC profile. sorted_gases sorted by mod_m ascending."""
+    def select_gas(depth_m):
+        for g in sorted_gases:
+            if depth_m <= g.mod_m:
+                return g
+        return sorted_gases[-1]
+
+    cns = 0.0
+    otu = 0.0
+    pts = profile.profile_points
+    for i in range(len(pts) - 1):
+        d1, d2 = pts[i]['d'], pts[i + 1]['d']
+        t1, t2 = pts[i]['t'], pts[i + 1]['t']
+        dt = t2 - t1
+        if dt <= 0:
+            continue
+        avg_depth = (d1 + d2) / 2.0
+        p_abs = avg_depth / 10.0 + SURFACE_BAR
+        ppo2 = select_gas(avg_depth).fo2 * p_abs
+        cns += _cns_rate(ppo2) * dt
+        otu += _otu_rate(ppo2) * dt
+    return cns, otu
